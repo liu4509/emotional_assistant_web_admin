@@ -4,6 +4,13 @@ import Layout from '@/views/layout/index.vue'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    // 登录页面
+    {
+      path: '/login',
+      name: 'Login',
+      component: () => import('@/views/login/index.vue'),
+      meta: { title: '登录', noAuth: true }
+    },
     {
       path: '/',
       component: Layout,
@@ -64,10 +71,30 @@ const router = createRouter({
   ],
 })
 
-// 添加导航守卫，帮助调试
+// 添加导航守卫，实现权限控制
 router.beforeEach((to, from, next) => {
   console.log('路由变化:', { from: from.path, to: to.path })
-  next()
+
+  // 获取登录状态
+  const token = localStorage.getItem('access_token')
+
+  if (to.meta.noAuth) {
+    // 不需要身份验证的页面
+    if (token && to.path === '/login') {
+      // 如果已登录且访问的是登录页，重定向到首页
+      next('/')
+    } else {
+      next()
+    }
+  } else {
+    // 需要身份验证的页面
+    if (token) {
+      next()
+    } else {
+      // 未登录，重定向到登录页
+      next('/login')
+    }
+  }
 })
 
 router.onError((error) => {

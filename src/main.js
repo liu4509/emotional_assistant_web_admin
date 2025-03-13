@@ -12,11 +12,17 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import App from './App.vue'
 import router from './router'
 import components from '@/components'
+import { useUserStore } from '@/stores/user'
 
 const app = createApp(App)
 
 // 状态管理
-app.use(createPinia())
+const pinia = createPinia()
+app.use(pinia)
+
+// 初始化用户状态
+const userStore = useUserStore()
+userStore.initUserInfo()
 
 // 路由
 app.use(router)

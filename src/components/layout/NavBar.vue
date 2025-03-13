@@ -1,12 +1,18 @@
 <script setup>
-import { ref } from 'vue'
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { ElMessage } from 'element-plus'
 
 const props = defineProps({
   collapse: {
     type: Boolean,
-    default: false,
-  },
+    default: false
+  }
 })
+
+const router = useRouter()
+const userStore = useUserStore()
 
 const emit = defineEmits(['toggle-sidebar'])
 
@@ -14,18 +20,22 @@ const toggleSidebar = () => {
   emit('toggle-sidebar')
 }
 
+// 从store获取用户信息
+const userInfo = computed(() => userStore.userInfo || {})
+const avatar = computed(() => userInfo.value?.headPic || 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png')
+const username = computed(() => userInfo.value?.username || '用户')
+
 const handleCommand = (command) => {
   if (command === 'logout') {
-    // 实现登出逻辑
-    console.log('登出系统')
+    // 退出登录
+    userStore.logout()
+    router.push('/login')
+    ElMessage.success('退出成功')
   } else if (command === 'profile') {
     // 跳转到个人信息页
     console.log('查看个人信息')
   }
 }
-
-const userAvatar = ref('https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png')
-const username = ref('管理员')
 </script>
 
 <template>
@@ -55,7 +65,7 @@ const username = ref('管理员')
 
       <el-dropdown class="avatar-container" trigger="click" @command="handleCommand">
         <div class="avatar-wrapper">
-          <el-avatar :size="30" :src="userAvatar" />
+          <el-avatar :size="30" :src="avatar" />
           <span class="username">{{ username }}</span>
           <el-icon>
             <CaretBottom />
