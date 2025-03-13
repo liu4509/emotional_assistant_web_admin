@@ -4,38 +4,38 @@ import router from '@/router'
 
 const service = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
-  timeout: 10000
+  timeout: 10000,
 })
 
 // 请求拦截器
 service.interceptors.request.use(
-  config => {
+  (config) => {
     const token = localStorage.getItem('access_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
     return config
   },
-  error => {
+  (error) => {
     return Promise.reject(error)
-  }
+  },
 )
 
 // 响应拦截器
 service.interceptors.response.use(
-  response => {
+  (response) => {
     const res = response.data
     if (res.code !== 200) {
       ElMessage({
         message: res.message || 'Error',
         type: 'error',
-        duration: 5 * 1000
+        duration: 5 * 1000,
       })
       return Promise.reject(new Error(res.message || 'Error'))
     }
     return res
   },
-  error => {
+  (error) => {
     if (error.response) {
       switch (error.response.status) {
         case 401:
@@ -52,7 +52,7 @@ service.interceptors.response.use(
       ElMessage.error('网络连接异常或请求超时')
     }
     return Promise.reject(error)
-  }
+  },
 )
 
 export default service
