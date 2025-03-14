@@ -31,27 +31,27 @@ const menuItems = [
     path: '/tourism',
     children: [
       {
-        title: '景点推荐',
+        title: '景点管理',
         path: '/tourism/recommendations',
       },
       {
-        title: '统计报表',
+        title: '打卡管理',
         path: '/tourism/check-ins',
       },
     ],
   },
   {
     title: '音乐视频管理',
-    icon: 'Location',
-    path: '/tourismss',
+    icon: 'Film',
+    path: '/media',
     children: [
       {
-        title: '音乐推荐',
-        path: '/tourism/recommendationsss',
+        title: '音乐管理',
+        path: '/media/music',
       },
       {
-        title: '视频推荐',
-        path: '/tourism/check-insss',
+        title: '视频管理',
+        path: '/media/video',
       },
     ],
   },
@@ -61,11 +61,11 @@ const menuItems = [
     path: '/tourismssss',
     children: [
       {
-        title: '心理文章推荐',
+        title: '心理文章管理',
         path: '/tourism/recommendationsssss',
       },
       {
-        title: '心理视频推荐',
+        title: '心理视频管理',
         path: '/tourism/check-insssss',
       },
     ],

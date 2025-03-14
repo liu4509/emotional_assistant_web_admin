@@ -1,7 +1,8 @@
 <script setup>
 import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { formatDate } from '@/utils/utils'
+import { createUploadHandler } from '@/utils/upload'
 
 // 定义组件名称
 defineOptions({
@@ -88,35 +89,51 @@ const handleSave = async () => {
   }
 }
 
-// 处理头像上传
+// TODO:上传处理器使用
+const uploadHandler = createUploadHandler({
+  action: '/api/upload/avatar',
+  maxSize: 2,
+  acceptTypes: ['image/jpeg', 'image/png'],
+  headers: {
+    // 可以在这里添加认证信息等
+  }
+})
+
+// 处理头像上传成功
 const handleAvatarSuccess = (response) => {
-  if (response && response.url) {
+  if (response?.url) {
     editForm.value.avatar = response.url
-    ElMessage.success('头像上传成功')
-  } else {
-    ElMessage.error('头像上传失败')
   }
 }
 
-// 上传之前的处理
-const beforeAvatarUpload = (file) => {
-  if (!file) {
-    ElMessage.error('请选择要上传的文件')
-    return false
-  }
+// 删除用户
+const handleDelete = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除用户 "${row.name}" 吗？`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
 
-  const isJPG = file.type === 'image/jpeg' || file.type === 'image/png'
-  const isLt2M = file.size / 1024 / 1024 < 2
+    // TODO: 调用删除用户API
+    // const res = await deleteUser(row.id)
 
-  if (!isJPG) {
-    ElMessage.error('头像只能是 JPG 或 PNG 格式!')
-    return false
+    // 更新本地数据
+    const index = userList.value.findIndex(item => item.id === row.id)
+    if (index !== -1) {
+      userList.value.splice(index, 1)
+      ElMessage.success('删除成功')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败，请重试')
+    }
   }
-  if (!isLt2M) {
-    ElMessage.error('头像大小不能超过 2MB!')
-    return false
-  }
-  return true
 }
 </script>
 
@@ -126,7 +143,6 @@ const beforeAvatarUpload = (file) => {
       <template #header>
         <div class="card-header">
           <h3>用户管理</h3>
-          <el-button type="primary" size="small">添加用户</el-button>
         </div>
       </template>
 
@@ -148,7 +164,7 @@ const beforeAvatarUpload = (file) => {
         <el-table-column label="操作" width="180">
           <template #default="scope">
             <el-button size="small" type="primary" @click="handleEdit(scope.row)">编辑</el-button>
-            <el-button size="small" type="danger">删除</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(scope.row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -160,8 +176,9 @@ const beforeAvatarUpload = (file) => {
         <el-form-item label="头像">
           <div class="avatar-container">
             <el-avatar :size="100" :src="editForm.avatar" />
-            <el-upload class="avatar-uploader" action="/api/upload" :show-file-list="false"
-              :on-success="handleAvatarSuccess" :before-upload="beforeAvatarUpload" accept="image/jpeg,image/png">
+            <el-upload class="avatar-uploader" :action="uploadHandler.action" :show-file-list="false"
+              :before-upload="uploadHandler.beforeUpload" :http-request="uploadHandler.customUpload"
+              :on-success="handleAvatarSuccess" accept="image/jpeg,image/png">
               <el-button size="small" type="primary">更换头像</el-button>
             </el-upload>
           </div>

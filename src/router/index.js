@@ -93,6 +93,25 @@ const router = createRouter({
         },
       ],
     },
+    {
+      path: '/media',
+      component: Layout,
+      meta: { title: '媒体管理', icon: 'Film' },
+      children: [
+        {
+          path: 'music',
+          name: 'MediaMusic',
+          component: () => import('@/views/media/music.vue'),
+          meta: { title: '音乐推荐', icon: 'Headset' },
+        },
+        {
+          path: 'video',
+          name: 'MediaVideo',
+          component: () => import('@/views/media/video.vue'),
+          meta: { title: '视频推荐', icon: 'VideoCamera' },
+        },
+      ],
+    },
   ],
 })
 

@@ -185,7 +185,7 @@ const beforeImageUpload = (file) => {
     <el-card>
       <template #header>
         <div class="card-header">
-          <h3>打卡图片</h3>
+          <h3>打卡图片管理</h3>
           <el-button type="primary" @click="handleAdd">添加图片</el-button>
         </div>
       </template>

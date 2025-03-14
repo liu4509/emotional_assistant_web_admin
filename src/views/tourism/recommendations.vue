@@ -193,7 +193,7 @@ const beforeImageUpload = (file) => {
     <el-card>
       <template #header>
         <div class="card-header">
-          <h3>旅游推荐</h3>
+          <h3>旅游推荐管理</h3>
           <el-button type="primary" @click="handleAdd">添加景点</el-button>
         </div>
       </template>
