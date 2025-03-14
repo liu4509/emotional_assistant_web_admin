@@ -2,7 +2,8 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useUserStore } from '@/stores/user'
+// import { useUserStore } from '@/stores/user'
+import { useUser } from '@/composables/useUser'
 
 // 定义组件名称
 defineOptions({
@@ -10,7 +11,6 @@ defineOptions({
 })
 
 const router = useRouter()
-const userStore = useUserStore()
 
 // 登录表单数据
 const loginForm = reactive({
@@ -43,7 +43,7 @@ const handleLogin = async () => {
 
       try {
         // 调用store的登录方法
-        const success = await userStore.login(loginForm.username, loginForm.password)
+        const success = await useUser().login(loginForm.username, loginForm.password)
 
         if (success) {
           ElMessage.success('登录成功')

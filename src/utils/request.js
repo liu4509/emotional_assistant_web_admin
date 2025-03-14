@@ -12,7 +12,8 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('access_token')
+    const userStore = JSON.parse(localStorage.getItem('user-store') || '{}')
+    const token = userStore?.accessToken
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }

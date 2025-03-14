@@ -11,7 +11,7 @@ export function login(data) {
   return request({
     url: '/user/admin/login',
     method: 'post',
-    data
+    data,
   })
 }
 
@@ -22,7 +22,33 @@ export function login(data) {
 export function getUserInfo() {
   return request({
     url: '/user/info',
-    method: 'get'
+    method: 'get',
+  })
+}
+
+/**
+ * 更新用户信息
+ * @param {Object} data - 用户信息
+ * @returns {Promise}
+ */
+export function updateUserInfo(data) {
+  return request({
+    url: '/user/info',
+    method: 'put',
+    data,
+  })
+}
+
+/**
+ * 更新用户密码
+ * @param {Object} data - 用户密码
+ * @returns {Promise}
+ */
+export function updateUserPwd(data) {
+  return request({
+    url: '/user/admin/update_password',
+    method: 'post',
+    data,
   })
 }
 
@@ -33,6 +59,6 @@ export function getUserInfo() {
 export function logout() {
   return request({
     url: '/user/logout',
-    method: 'post'
+    method: 'post',
   })
 }

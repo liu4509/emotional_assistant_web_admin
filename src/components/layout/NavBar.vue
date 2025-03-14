@@ -1,8 +1,8 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
+import { useUser } from '@/composables/useUser'
 
 const props = defineProps({
   collapse: {
@@ -12,16 +12,16 @@ const props = defineProps({
 })
 
 const router = useRouter()
-const userStore = useUserStore()
 
 const emit = defineEmits(['toggle-sidebar'])
 
 const toggleSidebar = () => {
   emit('toggle-sidebar')
 }
+const userStore = useUser()
 
 // 从store获取用户信息
-const userInfo = computed(() => userStore.userInfo || {})
+const userInfo = computed(() => userStore.userInfo.value || {})
 const avatar = computed(() => userInfo.value?.headPic || 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png')
 const username = computed(() => userInfo.value?.username || '用户')
 
@@ -29,11 +29,11 @@ const handleCommand = (command) => {
   if (command === 'logout') {
     // 退出登录
     userStore.logout()
-    router.push('/login')
+    router.replace('/login')
     ElMessage.success('退出成功')
   } else if (command === 'profile') {
     // 跳转到个人信息页
-    console.log('查看个人信息')
+    router.push('/profile')
   }
 }
 </script>

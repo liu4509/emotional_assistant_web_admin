@@ -3,6 +3,7 @@ import './assets/main.css'
 import { createApp } from 'vue'
 // 状态管理
 import { createPinia } from 'pinia'
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 // UI
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
@@ -12,17 +13,20 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import App from './App.vue'
 import router from './router'
 import components from '@/components'
-import { useUserStore } from '@/stores/user'
+import { userPlugin } from '@/plugins/user'
+// import { useUser } from '@/composables/useUser'
 
 const app = createApp(App)
 
-// 状态管理
+// 创建 Pinia 实例
 const pinia = createPinia()
+// 使用持久化插件
+pinia.use(piniaPluginPersistedstate)
 app.use(pinia)
 
-// 初始化用户状态
-const userStore = useUserStore()
-userStore.initUserInfo()
+// 使用用户插件
+app.use(userPlugin)
+// useUser().initUserInfo()
 
 // 路由
 app.use(router)

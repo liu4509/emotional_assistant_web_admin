@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Layout from '@/views/layout/index.vue'
-
+import { useUser } from '@/composables/useUser'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -9,7 +9,7 @@ const router = createRouter({
       path: '/login',
       name: 'Login',
       component: () => import('@/views/login/index.vue'),
-      meta: { title: '登录', noAuth: true }
+      meta: { title: '登录', noAuth: true },
     },
     {
       path: '/',
@@ -21,6 +21,12 @@ const router = createRouter({
           name: 'Dashboard',
           component: () => import('@/views/dashboard/index.vue'),
           meta: { title: '首页', icon: 'HomeFilled', affix: true },
+        },
+        {
+          path: 'profile',
+          name: 'Profile',
+          component: () => import('@/views/profile/index.vue'),
+          meta: { title: '个人信息', hidden: true },
         },
       ],
     },
@@ -68,15 +74,34 @@ const router = createRouter({
         },
       ],
     },
+    {
+      path: '/tourism',
+      component: Layout,
+      meta: { title: '旅游推荐管理', icon: 'Location' },
+      children: [
+        {
+          path: 'recommendations',
+          name: 'TourismRecommendations',
+          component: () => import('@/views/tourism/recommendations.vue'),
+          meta: { title: '景点推荐', icon: 'Star' },
+        },
+        {
+          path: 'check-ins',
+          name: 'TourismCheckIns',
+          component: () => import('@/views/tourism/check-ins.vue'),
+          meta: { title: '打卡图片', icon: 'Picture' },
+        },
+      ],
+    },
   ],
 })
 
-// 添加导航守卫，实现权限控制
+// TODO:添加导航守卫，实现权限控制
 router.beforeEach((to, from, next) => {
   console.log('路由变化:', { from: from.path, to: to.path })
-
+  const { accessToken } = useUser()
   // 获取登录状态
-  const token = localStorage.getItem('access_token')
+  const token = accessToken.value
 
   if (to.meta.noAuth) {
     // 不需要身份验证的页面

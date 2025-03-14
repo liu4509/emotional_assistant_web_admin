@@ -26,20 +26,77 @@ const menuItems = [
     children: [],
   },
   {
-    title: '情感分析',
-    icon: 'DataAnalysis',
-    path: '/emotions',
+    title: '旅游推荐管理',
+    icon: 'Location',
+    path: '/tourism',
     children: [
       {
-        title: '分析记录',
-        path: '/emotions/records',
+        title: '景点推荐',
+        path: '/tourism/recommendations',
       },
       {
         title: '统计报表',
-        path: '/emotions/statistics',
+        path: '/tourism/check-ins',
       },
     ],
   },
+  {
+    title: '音乐视频管理',
+    icon: 'Location',
+    path: '/tourismss',
+    children: [
+      {
+        title: '音乐推荐',
+        path: '/tourism/recommendationsss',
+      },
+      {
+        title: '视频推荐',
+        path: '/tourism/check-insss',
+      },
+    ],
+  },
+  {
+    title: '心理知识宣传管理',
+    icon: 'Location',
+    path: '/tourismssss',
+    children: [
+      {
+        title: '心理文章推荐',
+        path: '/tourism/recommendationsssss',
+      },
+      {
+        title: '心理视频推荐',
+        path: '/tourism/check-insssss',
+      },
+    ],
+  },
+  {
+    title: '情绪调节训练管理',
+    icon: 'Setting',
+    path: '/settingsaa',
+    children: [],
+  },
+  {
+    title: '心情测评管理',
+    icon: 'Setting',
+    path: '/settingsaa',
+    children: [],
+  },
+  // {
+  //   title: '情感分析',
+  //   icon: 'DataAnalysis',
+  //   path: '/emotions',
+  //   children: [
+  //     {
+  //       title: '分析记录',
+  //       path: '/emotions/records',
+  //     },
+  //     {
+  //       title: '统计报表',
+  //       path: '/emotions/statistics',
+  //     },
+  //   ],
+  // },
   {
     title: '系统设置',
     icon: 'Setting',
