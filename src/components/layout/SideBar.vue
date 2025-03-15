@@ -57,29 +57,35 @@ const menuItems = [
   },
   {
     title: '心理知识宣传管理',
-    icon: 'Location',
-    path: '/tourismssss',
+    icon: 'Reading',
+    path: '/psychology',
     children: [
       {
         title: '心理文章管理',
-        path: '/tourism/recommendationsssss',
+        path: '/psychology/articles',
       },
       {
         title: '心理视频管理',
-        path: '/tourism/check-insssss',
+        path: '/psychology/videos',
       },
     ],
   },
   {
+    title: '减压游戏管理',
+    icon: 'Reading',
+    path: '/games',
+    children: [],
+  },
+  {
     title: '情绪调节训练管理',
     icon: 'Setting',
-    path: '/settingsaa',
+    path: '/settizngsaa',
     children: [],
   },
   {
     title: '心情测评管理',
-    icon: 'Setting',
-    path: '/settingsaa',
+    icon: 'Notebook',
+    path: '/questionnaires',
     children: [],
   },
   // {

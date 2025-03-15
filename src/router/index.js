@@ -75,6 +75,18 @@ const router = createRouter({
       ],
     },
     {
+      path: '/games',
+      component: Layout,
+      children: [
+        {
+          path: '',
+          name: 'GamesManagement',
+          component: () => import('@/views/games/management.vue'),
+          meta: { title: '解压游戏管理', icon: 'GameController' },
+        },
+      ],
+    },
+    {
       path: '/tourism',
       component: Layout,
       meta: { title: '旅游推荐管理', icon: 'Location' },
@@ -109,6 +121,38 @@ const router = createRouter({
           name: 'MediaVideo',
           component: () => import('@/views/media/video.vue'),
           meta: { title: '视频推荐', icon: 'VideoCamera' },
+        },
+      ],
+    },
+    {
+      path: '/psychology',
+      component: Layout,
+      meta: { title: '心理知识宣传', icon: 'Reading' },
+      children: [
+        {
+          path: 'articles',
+          name: 'PsychologyArticles',
+          component: () => import('@/views/psychology/articles.vue'),
+          meta: { title: '心理文章', icon: 'Document' },
+        },
+        {
+          path: 'videos',
+          name: 'PsychologyVideos',
+          component: () => import('@/views/psychology/videos.vue'),
+          meta: { title: '心理视频', icon: 'VideoCamera' },
+        },
+      ],
+    },
+    {
+      path: '/questionnaires',
+      component: Layout,
+      meta: { title: '心情问卷', icon: 'Notebook' },
+      children: [
+        {
+          path: '',
+          name: 'QuestionnaireManagement',
+          component: () => import('@/views/questionnaires/index.vue'),
+          meta: { title: '问卷管理', icon: 'List' },
         },
       ],
     },
