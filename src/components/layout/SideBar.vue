@@ -78,8 +78,8 @@ const menuItems = [
   },
   {
     title: '情绪调节训练管理',
-    icon: 'Setting',
-    path: '/settizngsaa',
+    icon: 'MagicStick',
+    path: '/emotion-training',
     children: [],
   },
   {

@@ -156,6 +156,19 @@ const router = createRouter({
         },
       ],
     },
+    {
+      path: '/emotion-training',
+      component: Layout,
+      meta: { title: '情绪调节训练', icon: 'MagicStick' },
+      children: [
+        {
+          path: '',
+          name: 'EmotionTrainingManagement',
+          component: () => import('@/views/emotion-training/index.vue'),
+          meta: { title: '训练管理', icon: 'List' },
+        },
+      ],
+    },
   ],
 })
 
