@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Link, Edit, Delete, Plus } from '@element-plus/icons-vue'
 import { createGame, deleteGame, getGameList, updateGame } from '@/api/game'
@@ -17,11 +17,24 @@ const emotionOptions = [
   { label: '消极', value: 'negative' },
   { label: '非常消极', value: 'very_negative' }
 ]
+
+// 当前选中的分类
+const currentCategory = ref('')
+
 const isEdit = ref(true)
 const gamesList = ref([])
+const loading = ref(false)
+
+// 过滤后的游戏列表
+const filteredGamesList = computed(() => {
+  if (!currentCategory.value) return gamesList.value
+  return gamesList.value.filter(item => item.category === currentCategory.value)
+})
+
 // 获取游戏列表
 const fetchGameList = async () => {
   try {
+    loading.value = true
     const res = await getGameList()
     if (res.code === 200) {
       let vo = []
@@ -38,6 +51,8 @@ const fetchGameList = async () => {
   } catch (error) {
     console.error('获取游戏列表失败:', error)
     ElMessage.error('获取游戏列表失败，请重试')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -204,9 +219,19 @@ const openGameUrl = (url) => {
         </div>
       </template>
 
+      <!-- 分类筛选 -->
+      <div class="category-filter">
+        <el-radio-group v-model="currentCategory" size="large">
+          <el-radio-button label="">全部</el-radio-button>
+          <el-radio-button v-for="option in emotionOptions" :key="option.value" :label="option.value">
+            {{ option.label }}
+          </el-radio-button>
+        </el-radio-group>
+      </div>
+
       <!-- 游戏列表 -->
-      <div class="games-grid">
-        <el-card v-for="item in gamesList" :key="item.id" class="game-card">
+      <div v-loading="loading" class="games-grid">
+        <el-card v-for="item in filteredGamesList" :key="item.id" class="game-card">
           <div class="game-image">
             <el-image :src="item.image" fit="cover" />
             <div class="game-category">
@@ -262,7 +287,7 @@ const openGameUrl = (url) => {
 
         <el-form-item label="游戏图片" prop="image">
           <div class="avatar-container">
-            <el-avatar :size="150" :src="editForm.image" shape="square" fit="cover" />
+            <el-avatar :size="150" v-if="editForm.image" :src="editForm.image" shape="square" fit="cover" />
             <div class="avatar-upload">
               <input type="file" ref="fileInput" accept="image/jpeg,image/png" style="display: none"
                 @change="handleAvatarChange" />
@@ -303,6 +328,12 @@ const openGameUrl = (url) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.category-filter {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
 }
 
 .games-grid {
