@@ -1,11 +1,19 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { VideoPlay } from '@element-plus/icons-vue'
+import { VideoPlay, Edit, Delete } from '@element-plus/icons-vue'
+import { getVideoList, createVideo, updateVideo, deleteVideo } from '@/api/video'
+import { uploadImageUtil } from '@/utils/utils'
 
 defineOptions({
   name: 'MediaVideo'
 })
+
+// 加载状态
+const loading = ref(false)
+
+// 当前选中的分类
+const currentCategory = ref('')
 
 // 情绪分类选项
 const emotionOptions = [
@@ -17,16 +25,39 @@ const emotionOptions = [
 ]
 
 // 视频列表
-const videoList = ref([
-  {
-    id: 1,
-    title: '阳光沙滩',
-    description: '放松心情的海边风景',
-    cover: 'https://img.picui.cn/free/2024/11/10/672fbdd53238b.jpg',
-    url: 'http://vjs.zencdn.net/v/oceans.mp4',
-    category: 'positive',
+const videoList = ref([])
+
+// 过滤后的视频列表
+const filteredVideoList = computed(() => {
+  if (!currentCategory.value) return videoList.value
+  return videoList.value.filter(item => item.category === currentCategory.value)
+})
+
+// 获取视频列表
+const fetchVideoList = async () => {
+  try {
+    loading.value = true
+    const res = await getVideoList()
+    if (res.code === 200) {
+      videoList.value = res.data.map(item => ({
+        ...item,
+        category: item.categorys[0]?.value || 'neutral'
+      }))
+    } else {
+      ElMessage.error(res.message || '获取视频列表失败')
+    }
+  } catch (error) {
+    console.error('获取视频列表失败:', error)
+    ElMessage.error('获取视频列表失败，请重试')
+  } finally {
+    loading.value = false
   }
-])
+}
+
+// 组件挂载时获取视频列表
+onMounted(() => {
+  fetchVideoList()
+})
 
 // 预览对话框
 const previewDialogVisible = ref(false)
@@ -52,6 +83,8 @@ const editForm = ref({
 // 编辑表单规则
 const editRules = {
   title: [{ required: true, message: '请输入视频标题', trigger: 'blur' }],
+  url: [{ required: true, message: '请输入视频链接', trigger: 'blur' }],
+  cover: [{ required: true, message: '请上传视频封面', trigger: 'blur' }],
   category: [{ required: true, message: '请选择分类', trigger: 'change' }]
 }
 
@@ -64,31 +97,59 @@ const handleEdit = (row) => {
   editDialogVisible.value = true
 }
 
+// 处理图片上传
+const handleCoverChange = async (event) => {
+  try {
+    const url = await uploadImageUtil(event)
+    if (url) {
+      editForm.value.cover = url
+    }
+  } catch (error) {
+    console.error('封面上传失败:', error)
+    ElMessage.error('上传失败，请重试')
+  }
+}
+
 // 保存编辑
 const handleSave = async () => {
   if (!editFormRef.value) return
 
   try {
     await editFormRef.value.validate()
-    // TODO: 调用保存API
 
-    // 更新本地数据
-    const index = videoList.value.findIndex(item => item.id === editForm.value.id)
-    if (index !== -1) {
-      videoList.value[index] = { ...editForm.value }
-    } else {
-      // 新增
-      videoList.value.push({
-        ...editForm.value,
-        id: Date.now(),
-      })
+    const videoData = {
+      title: editForm.value.title,
+      description: editForm.value.description,
+      cover: editForm.value.cover,
+      url: editForm.value.url,
+      categoryValues: [editForm.value.category]
     }
 
-    ElMessage.success('保存成功')
+    let res
+    if (editForm.value.id) {
+      // 更新视频
+      res = await updateVideo(editForm.value.id, videoData)
+      if (res.code === 200) {
+        ElMessage.success('更新成功')
+        await fetchVideoList() // 重新获取列表
+      } else {
+        ElMessage.error(res.message || '更新失败')
+      }
+    } else {
+      // 创建视频
+      res = await createVideo(videoData)
+      if (res.code === 201) {
+        ElMessage.success('创建成功')
+        await fetchVideoList() // 重新获取列表
+      } else {
+        ElMessage.error(res.message || '创建失败')
+      }
+    }
+
     editDialogVisible.value = false
   } catch (error) {
-    console.error('表单验证失败:', error)
-    ElMessage.error('请检查表单填写是否正确')
+    console.error('保存失败:', error)
+    ElMessage.error('保存失败，请重试')
   }
 }
 
@@ -105,13 +166,12 @@ const handleDelete = async (row) => {
       }
     )
 
-    // TODO: 调用删除API
-
-    // 更新本地数据
-    const index = videoList.value.findIndex(item => item.id === row.id)
-    if (index !== -1) {
-      videoList.value.splice(index, 1)
+    const res = await deleteVideo(row.id)
+    if (res.code === 200) {
       ElMessage.success('删除成功')
+      await fetchVideoList() // 重新获取列表
+    } else {
+      ElMessage.error(res.message || '删除失败')
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -141,13 +201,28 @@ const handleAdd = () => {
       <template #header>
         <div class="card-header">
           <h3>视频管理</h3>
-          <el-button type="primary" @click="handleAdd">添加视频</el-button>
+          <el-button type="primary" @click="handleAdd">
+            <el-icon>
+              <VideoPlay />
+            </el-icon>
+            添加视频
+          </el-button>
         </div>
       </template>
 
+      <!-- 分类筛选 -->
+      <div class="category-filter">
+        <el-radio-group v-model="currentCategory" size="large">
+          <el-radio-button label="">全部</el-radio-button>
+          <el-radio-button v-for="option in emotionOptions" :key="option.value" :label="option.value">
+            {{ option.label }}
+          </el-radio-button>
+        </el-radio-group>
+      </div>
+
       <!-- 视频列表 -->
-      <div class="video-grid">
-        <el-card v-for="item in videoList" :key="item.id" class="video-card" :body-style="{ padding: '0px' }">
+      <div v-loading="loading" class="video-grid">
+        <el-card v-for="item in filteredVideoList" :key="item.id" class="video-card" :body-style="{ padding: '0px' }">
           <div class="video-cover" @click="handlePreview(item)">
             <el-image :src="item.cover" fit="cover" />
             <div class="play-overlay">
@@ -167,11 +242,22 @@ const handleAdd = () => {
                 size="small">
                 {{emotionOptions.find(opt => opt.value === item.category)?.label}}
               </el-tag>
+              <span class="video-time">{{ new Date(item.createTime).toLocaleString() }}</span>
             </div>
 
             <div class="video-actions">
-              <el-button size="small" type="primary" @click="handleEdit(item)">编辑</el-button>
-              <el-button size="small" type="danger" @click="handleDelete(item)">删除</el-button>
+              <el-button size="small" type="primary" @click.stop="handleEdit(item)">
+                <el-icon>
+                  <Edit />
+                </el-icon>
+                编辑
+              </el-button>
+              <el-button size="small" type="danger" @click.stop="handleDelete(item)">
+                <el-icon>
+                  <Delete />
+                </el-icon>
+                删除
+              </el-button>
             </div>
           </div>
         </el-card>
@@ -181,6 +267,13 @@ const handleAdd = () => {
     <!-- 预览对话框 -->
     <el-dialog v-model="previewDialogVisible" :title="previewVideo?.title" width="800px" destroy-on-close center>
       <video v-if="previewVideo" :src="previewVideo.url" controls class="preview-video"></video>
+      <div class="video-info">
+        <el-tag
+          :type="previewVideo?.category === 'positive' ? 'success' : previewVideo?.category === 'negative' ? 'danger' : 'info'">
+          {{emotionOptions.find(opt => opt.value === previewVideo?.category)?.label}}
+        </el-tag>
+        <div class="video-description">{{ previewVideo?.description }}</div>
+      </div>
     </el-dialog>
 
     <!-- 编辑对话框 -->
@@ -190,21 +283,25 @@ const handleAdd = () => {
           <el-input v-model="editForm.title" />
         </el-form-item>
 
-        <el-form-item label="描述">
+        <el-form-item label="描述" prop="description">
           <el-input v-model="editForm.description" type="textarea" rows="3" />
         </el-form-item>
 
         <el-form-item label="封面图片" prop="cover">
-          <el-upload class="cover-uploader" action="/api/upload" :show-file-list="false" accept="image/*">
-            <el-image v-if="editForm.cover" :src="editForm.cover" fit="cover" class="cover-preview" />
-            <el-button v-else>上传封面</el-button>
-          </el-upload>
+          <div class="avatar-container">
+            <el-avatar :size="150" v-if="editForm.cover" :src="editForm.cover" shape="square" fit="cover" />
+            <div class="avatar-upload">
+              <input type="file" ref="fileInput" accept="image/jpeg,image/png" style="display: none"
+                @change="handleCoverChange" />
+              <el-button size="small" type="primary" @click="$refs.fileInput.click()">
+                上传图片
+              </el-button>
+            </div>
+          </div>
         </el-form-item>
 
-        <el-form-item label="视频文件" prop="url">
-          <el-upload class="video-uploader" action="/api/upload" :show-file-list="false" accept="video/*">
-            <el-button>{{ editForm.url ? '重新上传' : '上传视频' }}</el-button>
-          </el-upload>
+        <el-form-item label="视频链接" prop="url">
+          <el-input v-model="editForm.url" placeholder="例如: https://example.com/video.mp4" />
         </el-form-item>
 
         <el-form-item label="情绪分类" prop="category">
@@ -235,6 +332,12 @@ const handleAdd = () => {
   align-items: center;
 }
 
+.category-filter {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+}
+
 .video-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -248,6 +351,7 @@ const handleAdd = () => {
 
 .video-card:hover {
   transform: translateY(-5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .video-cover {
@@ -314,6 +418,10 @@ const handleAdd = () => {
   margin-bottom: 12px;
 }
 
+.video-time {
+  color: #909399;
+  font-size: 12px;
+}
 
 .video-actions {
   display: flex;
@@ -324,6 +432,16 @@ const handleAdd = () => {
   width: 100%;
   max-height: 450px;
   background: black;
+  margin-bottom: 20px;
+}
+
+.video-info {
+  margin-top: 20px;
+}
+
+.video-info .video-description {
+  margin-top: 10px;
+  color: #666;
 }
 
 .cover-preview {
@@ -337,5 +455,16 @@ const handleAdd = () => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.avatar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.avatar-upload {
+  margin-top: 8px;
 }
 </style>
