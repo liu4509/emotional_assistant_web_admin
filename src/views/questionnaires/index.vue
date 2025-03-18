@@ -1,127 +1,41 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete, Edit, QuestionFilled } from '@element-plus/icons-vue'
+import { getQuestionnaireList, createQuestionnaire, updateQuestionnaire, deleteQuestionnaire } from '@/api/questionnaire'
 
 defineOptions({
   name: 'QuestionnaireManagement'
 })
 
+// 加载状态
+const loading = ref(false)
+
 // 问卷列表
-const questionnaireList = ref([
-  {
-    id: 3,
-    title: '日常心情评估',
-    description: '评估您当前的心情状态，帮助您了解自己的情绪变化。',
-    createTime: '2024-03-15 10:00:00',
-    questions: [
-      {
-        id: 301,
-        content: '您现在感觉如何？',
-        options: [
-          { id: 3001, content: '非常快乐', score: 5 },
-          { id: 3002, content: '快乐', score: 4 },
-          { id: 3003, content: '一般', score: 3 },
-          { id: 3004, content: '悲伤', score: 2 },
-          { id: 3005, content: '非常悲伤', score: 1 }
-        ]
-      },
-      {
-        id: 302,
-        content: '您是否感到焦虑或紧张？',
-        options: [
-          { id: 3006, content: '从不', score: 5 },
-          { id: 3007, content: '很少', score: 4 },
-          { id: 3008, content: '有时', score: 3 },
-          { id: 3009, content: '经常', score: 2 },
-          { id: 3010, content: '总是', score: 1 }
-        ]
-      },
-      {
-        id: 303,
-        content: '您现在的心情是平静的还是烦躁的？',
-        options: [
-          { id: 3011, content: '非常平静', score: 5 },
-          { id: 3012, content: '平静', score: 4 },
-          { id: 3013, content: '一般', score: 3 },
-          { id: 3014, content: '烦躁', score: 2 },
-          { id: 3015, content: '非常烦躁', score: 1 }
-        ]
-      },
-      {
-        id: 304,
-        content: '您对未来的态度是乐观的还是悲观的？',
-        options: [
-          { id: 3016, content: '非常乐观', score: 5 },
-          { id: 3017, content: '乐观', score: 4 },
-          { id: 3018, content: '中立', score: 3 },
-          { id: 3019, content: '悲观', score: 2 },
-          { id: 3020, content: '非常悲观', score: 1 }
-        ]
-      },
-      {
-        id: 305,
-        content: '您现在是否有压力感？',
-        options: [
-          { id: 3021, content: '没有压力', score: 5 },
-          { id: 3022, content: '轻微压力', score: 4 },
-          { id: 3023, content: '中等压力', score: 3 },
-          { id: 3024, content: '较大压力', score: 2 },
-          { id: 3025, content: '极大压力', score: 1 }
-        ]
-      },
-    ]
-  },
-  {
-    id: 1,
-    title: '日常心情评估',
-    description: '评估您当前的心情状态，帮助您了解自己的情绪变化。',
-    createTime: '2024-03-15 10:00:00',
-    questions: [
-      {
-        id: 101,
-        content: '今天您的心情如何？',
-        options: [
-          { id: 1001, content: '非常好', score: 5 },
-          { id: 1002, content: '比较好', score: 4 },
-          { id: 1003, content: '一般', score: 3 },
-          { id: 1004, content: '不太好', score: 2 },
-          { id: 1005, content: '非常糟糕', score: 1 }
-        ]
-      },
-      {
-        id: 102,
-        content: '您今天的压力水平如何？',
-        options: [
-          { id: 1006, content: '没有压力', score: 5 },
-          { id: 1007, content: '轻微压力', score: 4 },
-          { id: 1008, content: '中等压力', score: 3 },
-          { id: 1009, content: '较大压力', score: 2 },
-          { id: 1010, content: '极度压力', score: 1 }
-        ]
-      }
-    ]
-  },
-  {
-    id: 2,
-    title: '工作压力评估',
-    description: '评估您在工作中的压力水平，帮助您更好地管理工作压力。',
-    createTime: '2024-03-16 14:30:00',
-    questions: [
-      {
-        id: 201,
-        content: '您对当前工作满意度如何？',
-        options: [
-          { id: 2001, content: '非常满意', score: 5 },
-          { id: 2002, content: '比较满意', score: 4 },
-          { id: 2003, content: '一般', score: 3 },
-          { id: 2004, content: '不太满意', score: 2 },
-          { id: 2005, content: '非常不满意', score: 1 }
-        ]
-      }
-    ]
+const questionnaireList = ref([])
+
+// 获取问卷列表
+const fetchQuestionnaireList = async () => {
+  try {
+    loading.value = true
+    const res = await getQuestionnaireList()
+    if (res.code === 200 || res.code === 201) {
+      questionnaireList.value = res.data
+    } else {
+      ElMessage.error(res.message || '获取问卷列表失败')
+    }
+  } catch (error) {
+    console.error('获取问卷列表失败:', error)
+    ElMessage.error('获取问卷列表失败，请重试')
+  } finally {
+    loading.value = false
   }
-])
+}
+
+// 组件挂载时获取问卷列表
+onMounted(() => {
+  fetchQuestionnaireList()
+})
 
 // 编辑对话框
 const editDialogVisible = ref(false)
@@ -131,6 +45,9 @@ const editForm = ref({
   description: '',
   questions: []
 })
+
+// 保存按钮加载状态
+const saveLoading = ref(false)
 
 // 编辑表单规则
 const editRules = {
@@ -180,26 +97,51 @@ const handleSave = async () => {
       }
     }
 
-    // TODO: 调用保存API
+    saveLoading.value = true
 
-    // 更新本地数据
-    const index = questionnaireList.value.findIndex(item => item.id === editForm.value.id)
-    if (index !== -1) {
-      questionnaireList.value[index] = { ...editForm.value }
-    } else {
-      // 新增
-      questionnaireList.value.push({
-        ...editForm.value,
-        id: Date.now(),
-        createTime: new Date().toLocaleString()
+    let res
+    if (editForm.value.id) {
+      // 更新问卷
+      res = await updateQuestionnaire(editForm.value.id, {
+        title: editForm.value.title,
+        description: editForm.value.description,
+        questions: editForm.value.questions
       })
-    }
 
-    ElMessage.success('保存成功')
-    editDialogVisible.value = false
+      if (res.code === 200 || res.code === 201) {
+        ElMessage.success('更新成功')
+        await fetchQuestionnaireList() // 重新获取列表
+        editDialogVisible.value = false
+      } else {
+        ElMessage.error(res.message || '更新失败')
+      }
+    } else {
+      // 新增问卷
+      res = await createQuestionnaire({
+        title: editForm.value.title,
+        description: editForm.value.description,
+        questions: editForm.value.questions.map(q => ({
+          content: q.content,
+          options: q.options.map(o => ({
+            content: o.content,
+            score: o.score
+          }))
+        }))
+      })
+
+      if (res.code === 200 || res.code === 201) {
+        ElMessage.success('添加成功')
+        await fetchQuestionnaireList() // 重新获取列表
+        editDialogVisible.value = false
+      } else {
+        ElMessage.error(res.message || '添加失败')
+      }
+    }
   } catch (error) {
-    console.error('表单验证失败:', error)
-    ElMessage.error('请检查表单填写是否正确')
+    console.error('保存失败:', error)
+    ElMessage.error('保存失败，请检查表单填写是否正确')
+  } finally {
+    saveLoading.value = false
   }
 }
 
@@ -216,13 +158,12 @@ const handleDelete = async (row) => {
       }
     )
 
-    // TODO: 调用删除API
-
-    // 更新本地数据
-    const index = questionnaireList.value.findIndex(item => item.id === row.id)
-    if (index !== -1) {
-      questionnaireList.value.splice(index, 1)
+    const res = await deleteQuestionnaire(row.id)
+    if (res.code === 200 || res.code === 201) {
       ElMessage.success('删除成功')
+      await fetchQuestionnaireList() // 重新获取列表
+    } else {
+      ElMessage.error(res.message || '删除失败')
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -310,7 +251,7 @@ const calculateTotalScore = (questionnaire) => {
 
 <template>
   <div class="questionnaire-container">
-    <el-card>
+    <el-card v-loading="loading">
       <template #header>
         <div class="card-header">
           <h3>心情问卷管理</h3>
@@ -327,7 +268,11 @@ const calculateTotalScore = (questionnaire) => {
       <el-table :data="questionnaireList" style="width: 100%" border>
         <el-table-column prop="title" label="问卷标题" min-width="180" />
         <el-table-column prop="description" label="问卷描述" min-width="250" show-overflow-tooltip />
-        <el-table-column prop="createTime" label="创建时间" width="180" />
+        <el-table-column label="创建时间" width="180">
+          <template #default="scope">
+            {{ new Date(scope.row.createTime).toLocaleString() }}
+          </template>
+        </el-table-column>
         <el-table-column label="问题数量" width="100" align="center">
           <template #default="scope">
             {{ scope.row.questions.length }}
@@ -438,8 +383,8 @@ const calculateTotalScore = (questionnaire) => {
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="editDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSave">保存</el-button>
+          <el-button @click="editDialogVisible = false" :disabled="saveLoading">取消</el-button>
+          <el-button type="primary" @click="handleSave" :loading="saveLoading">保存</el-button>
         </span>
       </template>
     </el-dialog>
