@@ -1,33 +1,55 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { formatDate } from '@/utils/utils'
-import { createUploadHandler } from '@/utils/upload'
+import { getUserList, adminUpdateUser } from '@/api/user'
 
 // 定义组件名称
 defineOptions({
   name: 'UsersIndex'
 })
 
+// 查询参数
+const queryParams = ref({
+  pageNo: 1,
+  pageSize: 10,
+  username: '',
+  email: ''
+})
+
+// 总记录数
+const total = ref(0)
+
+// 加载状态
+const loading = ref(false)
+
 // 用户列表数据
-const userList = ref([
-  {
-    id: 1,
-    name: '张三',
-    email: 'zhangsan@example.com',
-    role: '管理员',
-    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-    createTime: Date.now() - 24 * 60 * 60 * 1000 // 一天前
-  },
-  {
-    id: 2,
-    name: '李四',
-    email: 'lisi@example.com',
-    role: '用户',
-    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-    createTime: Date.now() - 7 * 24 * 60 * 60 * 1000 // 一周前
+const userList = ref([])
+
+// 获取用户列表
+const fetchUserList = async () => {
+  try {
+    loading.value = true
+    const res = await getUserList(queryParams.value)
+
+    if (res.code === 200) {
+      userList.value = res.data.users || []
+      total.value = res.data.totalCount || 0
+    } else {
+      ElMessage.error(res.message || '获取用户列表失败')
+    }
+  } catch (error) {
+    console.error('获取用户列表失败:', error)
+    ElMessage.error('获取用户列表失败，请重试')
+  } finally {
+    loading.value = false
   }
-])
+}
+
+// 组件挂载时获取用户列表
+onMounted(() => {
+  fetchUserList()
+})
 
 // 角色选项
 const roleOptions = [
@@ -39,7 +61,7 @@ const roleOptions = [
 const editDialogVisible = ref(false)
 const editForm = ref({
   id: '',
-  name: '',
+  username: '',
   email: '',
   role: '',
   avatar: '',
@@ -72,37 +94,21 @@ const handleSave = async () => {
 
   try {
     await editFormRef.value.validate()
-    // TODO: 调用更新用户API
-    // const res = await updateUser(editForm.value)
 
-    // 更新本地数据
-    const index = userList.value.findIndex(item => item.id === editForm.value.id)
-    if (index !== -1) {
-      userList.value[index] = { ...editForm.value }
+    const res = await adminUpdateUser(editForm.value)
+
+    if (res.code === 200) {
+      // 更新本地数据
+      await fetchUserList()
+
+      ElMessage.success('更新成功')
+      editDialogVisible.value = false
+    } else {
+      ElMessage.error(res.message || '更新失败')
     }
-
-    ElMessage.success('更新成功')
-    editDialogVisible.value = false
   } catch (error) {
     console.error('表单验证失败:', error)
     ElMessage.error('请检查表单填写是否正确')
-  }
-}
-
-// TODO:上传处理器使用
-const uploadHandler = createUploadHandler({
-  action: '/api/upload/avatar',
-  maxSize: 2,
-  acceptTypes: ['image/jpeg', 'image/png'],
-  headers: {
-    // 可以在这里添加认证信息等
-  }
-})
-
-// 处理头像上传成功
-const handleAvatarSuccess = (response) => {
-  if (response?.url) {
-    editForm.value.avatar = response.url
   }
 }
 
@@ -110,7 +116,7 @@ const handleAvatarSuccess = (response) => {
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除用户 "${row.name}" 吗？`,
+      `确定要删除用户 "${row.username}" 吗？`,
       '删除确认',
       {
         confirmButtonText: '确定',
@@ -135,6 +141,33 @@ const handleDelete = async (row) => {
     }
   }
 }
+
+// 处理页码变更
+const handleCurrentChange = (page) => {
+  queryParams.value.pageNo = page
+  fetchUserList()
+}
+
+// 处理每页条数变更
+const handleSizeChange = (size) => {
+  queryParams.value.pageSize = size
+  queryParams.value.pageNo = 1
+  fetchUserList()
+}
+
+// 处理搜索
+const handleSearch = () => {
+  queryParams.value.pageNo = 1
+  fetchUserList()
+}
+
+// 重置搜索
+const resetSearch = () => {
+  queryParams.value.username = ''
+  queryParams.value.email = ''
+  queryParams.value.pageNo = 1
+  fetchUserList()
+}
 </script>
 
 <template>
@@ -143,12 +176,26 @@ const handleDelete = async (row) => {
       <template #header>
         <div class="card-header">
           <h3>用户管理</h3>
+          <div class="search-box">
+            <el-form :inline="true" :model="queryParams">
+              <el-form-item>
+                <el-input v-model="queryParams.username" placeholder="用户名" clearable />
+              </el-form-item>
+              <el-form-item>
+                <el-input v-model="queryParams.email" placeholder="邮箱" clearable />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" @click="handleSearch">搜索</el-button>
+                <el-button @click="resetSearch">重置</el-button>
+              </el-form-item>
+            </el-form>
+          </div>
         </div>
       </template>
 
-      <el-table :data="userList" border style="width: 100%">
+      <el-table :data="userList" border style="width: 100%" v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="用户名" width="120" />
+        <el-table-column prop="username" label="用户名" width="120" />
         <el-table-column prop="email" label="邮箱" width="200" />
         <el-table-column prop="role" label="角色" width="100" />
         <el-table-column label="头像" width="100">
@@ -168,6 +215,13 @@ const handleDelete = async (row) => {
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 分页组件 -->
+      <div class="pagination-container">
+        <el-pagination v-model:current-page="queryParams.pageNo" v-model:page-size="queryParams.pageSize"
+          :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper" :total="total"
+          @size-change="handleSizeChange" @current-change="handleCurrentChange" />
+      </div>
     </el-card>
 
     <!-- 编辑对话框 -->
@@ -176,16 +230,16 @@ const handleDelete = async (row) => {
         <el-form-item label="头像">
           <div class="avatar-container">
             <el-avatar :size="100" :src="editForm.avatar" />
-            <el-upload class="avatar-uploader" :action="uploadHandler.action" :show-file-list="false"
-              :before-upload="uploadHandler.beforeUpload" :http-request="uploadHandler.customUpload"
-              :on-success="handleAvatarSuccess" accept="image/jpeg,image/png">
+            <el-upload class="avatar-uploader" action="/api/upload/avatar" :show-file-list="false"
+              :on-success="(res) => editForm.avatar = res.url" :on-error="() => ElMessage.error('上传失败，请重试')"
+              accept="image/jpeg,image/png">
               <el-button size="small" type="primary">更换头像</el-button>
             </el-upload>
           </div>
         </el-form-item>
 
         <el-form-item label="用户名">
-          <el-input v-model="editForm.name" disabled />
+          <el-input v-model="editForm.username" disabled />
         </el-form-item>
 
         <el-form-item label="邮箱" prop="email">
@@ -222,6 +276,14 @@ const handleDelete = async (row) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.search-box {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .avatar-container {
@@ -229,6 +291,12 @@ const handleDelete = async (row) => {
   flex-direction: column;
   align-items: center;
   gap: 16px;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .dialog-footer {

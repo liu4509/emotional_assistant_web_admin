@@ -42,26 +42,26 @@ const router = createRouter({
         },
       ],
     },
-    {
-      path: '/emotions',
-      component: Layout,
-      name: 'Emotions',
-      meta: { title: '情感分析', icon: 'DataAnalysis' },
-      children: [
-        {
-          path: 'records',
-          name: 'EmotionRecords',
-          component: () => import('@/views/emotions/records.vue'),
-          meta: { title: '分析记录' },
-        },
-        {
-          path: 'statistics',
-          name: 'EmotionStatistics',
-          component: () => import('@/views/emotions/statistics.vue'),
-          meta: { title: '统计报表' },
-        },
-      ],
-    },
+    // {
+    //   path: '/emotions',
+    //   component: Layout,
+    //   name: 'Emotions',
+    //   meta: { title: '情感分析', icon: 'DataAnalysis' },
+    //   children: [
+    //     {
+    //       path: 'records',
+    //       name: 'EmotionRecords',
+    //       component: () => import('@/views/emotions/records.vue'),
+    //       meta: { title: '分析记录' },
+    //     },
+    //     {
+    //       path: 'statistics',
+    //       name: 'EmotionStatistics',
+    //       component: () => import('@/views/emotions/statistics.vue'),
+    //       meta: { title: '统计报表' },
+    //     },
+    //   ],
+    // },
     {
       path: '/settings',
       component: Layout,

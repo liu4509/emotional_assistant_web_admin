@@ -12,6 +12,10 @@ export const useUserStore = defineStore(
     // access_token
     const accessToken = ref('')
 
+    // 更新用户信息
+    const setUserInfo = (userInfoReq) => {
+      userInfo.value = userInfoReq
+    }
     // 初始化
     // const initUserInfo = async () => {
     //   try {
@@ -71,6 +75,7 @@ export const useUserStore = defineStore(
       login,
       logout,
       isLoggedIn,
+      setUserInfo,
     }
   },
   {

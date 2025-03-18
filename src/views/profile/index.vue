@@ -1,8 +1,10 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import { formatDate } from '@/utils/utils'
+import { getUserInfo, adminUpdateUser, updateAdminPassword, sendVerifyCodeAPI } from '@/api/user'
+import { uploadImage } from '@/api/upload'
 
 defineOptions({
   name: 'ProfilePage',
@@ -10,7 +12,6 @@ defineOptions({
 
 const userStore = useUserStore()
 const userInfo = computed(() => userStore.userInfo || {})
-console.log(userInfo.value)
 
 // 表单数据
 const form = ref({
@@ -18,8 +19,37 @@ const form = ref({
   email: userInfo.value.email || '',
   avatar: userInfo.value.avatar || '',
 })
+
 // 是否正在编辑
 const isEditing = ref(false)
+
+// 加载状态
+const loading = ref(false)
+
+// 获取最新用户信息
+const fetchUserInfo = async () => {
+  try {
+    loading.value = true
+    const res = await getUserInfo()
+    if (res.code === 200) {
+      // 更新store中的用户信息
+      userStore.setUserInfo(res.data.userInfo)
+    } else {
+      ElMessage.error(res.message || '获取用户信息失败')
+    }
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+    ElMessage.error('获取用户信息失败，请重试')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 组件挂载时获取最新用户信息
+onMounted(() => {
+  fetchUserInfo()
+})
+
 // 开始编辑
 const startEdit = () => {
   form.value = {
@@ -29,6 +59,7 @@ const startEdit = () => {
   }
   isEditing.value = true
 }
+
 // 取消编辑
 const cancelEdit = () => {
   isEditing.value = false
@@ -37,15 +68,32 @@ const cancelEdit = () => {
 // 保存修改
 const saveChanges = async () => {
   try {
-    // TODO: 调用更新用户信息的API
-    ElMessage.success('个人信息更新成功')
-    isEditing.value = false
+    loading.value = true
+    const userData = {
+      id: userInfo.value.id,
+      username: form.value.username,
+      email: form.value.email,
+      avatar: form.value.avatar
+    }
+
+    const res = await adminUpdateUser(userData)
+
+    if (res.code === 201) {
+      // 更新本地用户信息
+      await fetchUserInfo()
+      ElMessage.success('个人信息更新成功')
+      isEditing.value = false
+    } else {
+      ElMessage.error(res.message || '更新失败')
+    }
   } catch (error) {
-    console.log(error)
+    console.error('更新失败:', error)
     ElMessage.error('更新失败，请重试')
+  } finally {
+    loading.value = false
   }
 }
-// TODO: 修改密码功能开始
+
 // 修改密码对话框
 const passwordDialogVisible = ref(false)
 const passwordForm = ref({
@@ -91,21 +139,27 @@ const passwordRules = {
 const sendVerifyCode = async () => {
   try {
     isVerifyCodeSending.value = true
-    // TODO: 调用发送验证码API
-    // await sendVerifyCodeAPI()
-
-    // 开始倒计时
+    // 过期时间 （秒）
     countdown.value = 60
-    timer = setInterval(() => {
-      if (countdown.value > 0) {
-        countdown.value--
-      } else {
-        clearInterval(timer)
-        isVerifyCodeSending.value = false
-      }
-    }, 1000)
 
-    ElMessage.success('验证码已发送')
+    // TODO: 调用发送验证码API
+    const res = await sendVerifyCodeAPI({
+      address: userInfo.value.email,
+      ttl: countdown.value
+    })
+    if (res.code === 200) {
+      // 开始倒计时
+      timer = setInterval(() => {
+        if (countdown.value > 0) {
+          countdown.value--
+        } else {
+          clearInterval(timer)
+          isVerifyCodeSending.value = false
+        }
+      }, 1000)
+
+      ElMessage.success('验证码已发送')
+    }
   } catch (error) {
     console.error('发送验证码失败:', error)
     ElMessage.error('发送验证码失败，请重试')
@@ -117,15 +171,26 @@ const sendVerifyCode = async () => {
 const passwordFormRef = ref(null)
 const handleChangePassword = async () => {
   if (!passwordFormRef.value) return
+  if (passwordForm.value.currentPassword === passwordForm.value.newPassword) {
+    ElMessage.error('新密码不能与当前密码相同')
+    return
+  }
 
   try {
     await passwordFormRef.value.validate()
-    // TODO: 调用修改密码API
-    // await changePasswordAPI(passwordForm.value)
+    const res = await updateAdminPassword({
+      currentPassword: passwordForm.value.currentPassword,
+      password: passwordForm.value.newPassword,
+      verifyCode: passwordForm.value.verifyCode
+    })
 
-    ElMessage.success('密码修改成功')
-    passwordDialogVisible.value = false
-    resetPasswordForm()
+    if (res.code === 201) {
+      ElMessage.success('密码修改成功')
+      passwordDialogVisible.value = false
+      resetPasswordForm()
+    } else {
+      ElMessage.error(res.message || '修改密码失败')
+    }
   } catch (error) {
     console.error('修改密码失败:', error)
     ElMessage.error('修改密码失败，请重试')
@@ -155,18 +220,57 @@ const handleDialogClose = () => {
   countdown.value = 0
   isVerifyCodeSending.value = false
 }
+// 处理头像上传
+const handleAvatarChange = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  // 验证文件类型
+  if (!['image/jpeg', 'image/png'].includes(file.type)) {
+    ElMessage.error('只能上传JPG/PNG格式的图片')
+    return
+  }
+
+  // 验证文件大小（最大2MB）
+  if (file.size / 1024 / 1024 > 2) {
+    ElMessage.error('图片大小不能超过2MB')
+    return
+  }
+
+  // 创建FormData
+  const formData = new FormData()
+  formData.append('file', file)
+
+  try {
+    loading.value = true
+    const res = await uploadImage(formData)
+
+    if (res.code === 201 && res.data?.md5) {
+      form.value.avatar = res.data.links.url
+      userInfo.value.avatar = form.value.avatar
+      ElMessage.success('头像上传成功')
+    } else {
+      ElMessage.error(res.message || '上传失败')
+    }
+  } catch (error) {
+    console.error('头像上传失败:', error)
+    ElMessage.error('上传失败，请重试')
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <template>
   <div class="profile-page">
     <div class="profile-container">
-      <el-card class="profile-card">
+      <el-card class="profile-card" v-loading="loading">
         <template #header>
           <div class="card-header">
             <span>个人信息</span>
             <el-button v-if="!isEditing" type="primary" @click="startEdit">编辑</el-button>
             <div v-else>
-              <el-button type="primary" @click="saveChanges">保存</el-button>
+              <el-button type="primary" @click="saveChanges" :loading="loading">保存</el-button>
               <el-button @click="cancelEdit">取消</el-button>
             </div>
           </div>
@@ -174,11 +278,13 @@ const handleDialogClose = () => {
 
         <div class="profile-content">
           <div class="avatar-container">
-            <el-avatar :size="100" :src="userInfo.headPic" />
+            <el-avatar :size="100" :src="userInfo.avatar" />
             <div v-if="isEditing" class="avatar-upload">
-              <el-upload class="avatar-uploader" action="#" :show-file-list="false" :auto-upload="false">
-                <el-button size="small" type="primary">更换头像</el-button>
-              </el-upload>
+              <input type="file" ref="fileInput" accept="image/jpeg,image/png" style="display: none"
+                @change="handleAvatarChange" />
+              <el-button size="small" type="primary" @click="$refs.fileInput.click()">
+                更换头像
+              </el-button>
             </div>
           </div>
 

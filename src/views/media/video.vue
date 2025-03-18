@@ -24,7 +24,6 @@ const videoList = ref([
     description: '放松心情的海边风景',
     cover: 'https://img.picui.cn/free/2024/11/10/672fbdd53238b.jpg',
     url: 'http://vjs.zencdn.net/v/oceans.mp4',
-    duration: '3:45',
     category: 'positive',
   }
 ])
@@ -48,7 +47,6 @@ const editForm = ref({
   cover: '',
   url: '',
   category: '',
-  duration: '',
 })
 
 // 编辑表单规则
@@ -132,7 +130,6 @@ const handleAdd = () => {
     cover: '',
     url: '',
     category: '',
-    duration: '',
   }
   editDialogVisible.value = true
 }
@@ -153,7 +150,6 @@ const handleAdd = () => {
         <el-card v-for="item in videoList" :key="item.id" class="video-card" :body-style="{ padding: '0px' }">
           <div class="video-cover" @click="handlePreview(item)">
             <el-image :src="item.cover" fit="cover" />
-            <div class="video-duration">{{ item.duration }}</div>
             <div class="play-overlay">
               <el-icon :size="32">
                 <VideoPlay />
@@ -216,10 +212,6 @@ const handleAdd = () => {
             <el-option v-for="item in emotionOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-
-        <el-form-item label="时长" prop="duration">
-          <el-input v-model="editForm.duration" placeholder="例如: 3:45" />
-        </el-form-item>
       </el-form>
 
       <template #footer>
@@ -267,17 +259,6 @@ const handleAdd = () => {
 .video-cover .el-image {
   width: 100%;
   height: 100%;
-}
-
-.video-duration {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-size: 12px;
 }
 
 .play-overlay {
