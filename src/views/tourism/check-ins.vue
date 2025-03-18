@@ -1,10 +1,19 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, ZoomIn } from '@element-plus/icons-vue'
+import { getClockList, createClock, deleteClock } from '@/api/clock'
+import { uploadImageUtil } from '@/utils/utils'
 
 defineOptions({
   name: 'TourismCheckIns'
 })
+
+// 加载状态
+const loading = ref(false)
+
+// 当前选中的分类
+const currentCategory = ref('')
 
 // 情绪分类选项
 const emotionOptions = [
@@ -16,50 +25,39 @@ const emotionOptions = [
 ]
 
 // 打卡图片列表
-const checkInList = ref([
-  {
-    id: 1,
-    image: 'https://img.picui.cn/free/2025/03/08/67cc4dfa9690f.png',
-    category: 'positive',
-    createTime: Date.now()
-  },
-  {
-    id: 2,
-    image: 'https://img.picui.cn/free/2025/02/20/67b6eaddd1aa9.jpg',
-    category: 'positive',
-    createTime: Date.now()
-  },
-  {
-    id: 3,
-    image: 'https://img.picui.cn/free/2025/01/25/679422be838f3.png',
-    category: 'positive',
-    createTime: Date.now()
-  },
-  {
-    id: 4,
-    image: 'https://img.picui.cn/free/2024/11/04/6728a6c956362.png',
-    category: 'positive',
-    createTime: Date.now()
-  },
-  {
-    id: 5,
-    image: 'https://img.picui.cn/free/2024/11/04/6728a6a145e9e.png',
-    category: 'positive',
-    createTime: Date.now()
-  },
-  {
-    id: 6,
-    image: 'https://img.picui.cn/free/2025/01/25/679428ddcabd1.png',
-    category: 'positive',
-    createTime: Date.now()
-  },
-  {
-    id: 7,
-    image: 'https://img.picui.cn/free/2025/01/25/6794231281d95.png',
-    category: 'positive',
-    createTime: Date.now()
+const checkInList = ref([])
+
+// 过滤后的打卡列表
+const filteredCheckInList = computed(() => {
+  if (!currentCategory.value) return checkInList.value
+  return checkInList.value.filter(item => item.category === currentCategory.value)
+})
+
+// 获取打卡列表
+const fetchClockList = async () => {
+  try {
+    loading.value = true
+    const res = await getClockList()
+    if (res.code === 200) {
+      checkInList.value = res.data.map(item => ({
+        ...item,
+        category: item.categorys[0]?.value || 'neutral'
+      }))
+    } else {
+      ElMessage.error(res.message || '获取打卡列表失败')
+    }
+  } catch (error) {
+    console.error('获取打卡列表失败:', error)
+    ElMessage.error('获取打卡列表失败，请重试')
+  } finally {
+    loading.value = false
   }
-])
+}
+
+// 组件挂载时获取打卡列表
+onMounted(() => {
+  fetchClockList()
+})
 
 // 大图预览
 const previewVisible = ref(false)
@@ -106,27 +104,43 @@ const handleAdd = () => {
   addDialogVisible.value = true
 }
 
+// 处理图片上传
+const handleImageChange = async (event) => {
+  try {
+    const url = await uploadImageUtil(event)
+    if (url) {
+      addForm.value.image = url
+      ElMessage.success('图片上传成功')
+    }
+  } catch (error) {
+    console.error('图片上传失败:', error)
+    ElMessage.error('上传失败，请重试')
+  }
+}
+
 // 保存
 const handleSave = async () => {
   if (!addFormRef.value) return
 
   try {
     await addFormRef.value.validate()
-    // TODO: 调用保存API
 
-    // 模拟新增
-    const newItem = {
-      ...addForm.value,
-      id: Date.now(),
-      createTime: Date.now()
+    const clockData = {
+      image: addForm.value.image,
+      categoryValues: [addForm.value.category]
     }
-    checkInList.value.unshift(newItem)
 
-    ElMessage.success('添加成功')
-    addDialogVisible.value = false
+    const res = await createClock(clockData)
+    if (res.code === 201) {
+      ElMessage.success('添加成功')
+      await fetchClockList() // 重新获取列表
+      addDialogVisible.value = false
+    } else {
+      ElMessage.error(res.message || '添加失败')
+    }
   } catch (error) {
-    console.error('表单验证失败:', error)
-    ElMessage.error('请检查表单填写是否正确')
+    console.error('保存失败:', error)
+    ElMessage.error('保存失败，请重试')
   }
 }
 
@@ -139,11 +153,12 @@ const handleDelete = async (item) => {
       type: 'warning'
     })
 
-    // TODO: 调用删除API
-    const index = checkInList.value.findIndex(i => i.id === item.id)
-    if (index !== -1) {
-      checkInList.value.splice(index, 1)
+    const res = await deleteClock(item.id)
+    if (res.code === 200) {
       ElMessage.success('删除成功')
+      await fetchClockList() // 重新获取列表
+    } else {
+      ElMessage.error(res.message || '删除失败')
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -151,32 +166,6 @@ const handleDelete = async (item) => {
       ElMessage.error('删除失败，请重试')
     }
   }
-}
-
-// 处理图片上传
-const handleImageSuccess = (response) => {
-  if (response.code === 200 && response.data?.url) {
-    addForm.value.image = response.data.url
-    ElMessage.success('图片上传成功')
-  } else {
-    ElMessage.error('图片上传失败')
-  }
-}
-
-// 上传前检查
-const beforeImageUpload = (file) => {
-  const isImage = file.type.startsWith('image/')
-  const isLt5M = file.size / 1024 / 1024 < 5
-
-  if (!isImage) {
-    ElMessage.error('只能上传图片文件!')
-    return false
-  }
-  if (!isLt5M) {
-    ElMessage.error('图片大小不能超过 5MB!')
-    return false
-  }
-  return true
 }
 </script>
 
@@ -190,8 +179,18 @@ const beforeImageUpload = (file) => {
         </div>
       </template>
 
-      <div class="check-in-grid">
-        <div v-for="item in checkInList" :key="item.id" class="check-in-item">
+      <!-- 分类筛选 -->
+      <div class="category-filter">
+        <el-radio-group v-model="currentCategory" size="large">
+          <el-radio-button label="">全部</el-radio-button>
+          <el-radio-button v-for="option in emotionOptions" :key="option.value" :label="option.value">
+            {{ option.label }}
+          </el-radio-button>
+        </el-radio-group>
+      </div>
+
+      <div v-loading="loading" class="check-in-grid">
+        <div v-for="item in filteredCheckInList" :key="item.id" class="check-in-item">
           <div class="image-container" :style="{ backgroundImage: `url(${item.image})` }">
             <!-- 查看遮罩 -->
             <div class="overlay view-overlay" @click="showPreview(item.image)">
@@ -212,6 +211,8 @@ const beforeImageUpload = (file) => {
               :type="item.category === 'positive' ? 'success' : item.category === 'negative' ? 'danger' : 'info'">
               {{emotionOptions.find(opt => opt.value === item.category)?.label}}
             </el-tag>
+            <!-- 时间标签 -->
+            <span class="time-tag">{{ new Date(item.createTime).toLocaleString() }}</span>
           </div>
         </div>
       </div>
@@ -221,14 +222,15 @@ const beforeImageUpload = (file) => {
     <el-dialog title="添加打卡图片" v-model="addDialogVisible" width="500px">
       <el-form ref="addFormRef" :model="addForm" :rules="addRules" label-width="100px">
         <el-form-item label="上传图片" prop="image">
-          <div class="upload-container">
-            <el-image v-if="addForm.image" :src="addForm.image" class="preview-image" />
-            <el-upload class="image-uploader" action="/api/upload" :show-file-list="false"
-              :on-success="handleImageSuccess" :before-upload="beforeImageUpload" accept="image/*">
-              <el-button type="primary">
+          <div class="avatar-container">
+            <el-avatar :size="150" v-if="addForm.image" :src="addForm.image" shape="square" fit="cover" />
+            <div class="avatar-upload">
+              <input type="file" ref="fileInput" accept="image/jpeg,image/png" style="display: none"
+                @change="handleImageChange" />
+              <el-button size="small" type="primary" @click="$refs.fileInput.click()">
                 {{ addForm.image ? '更换图片' : '上传图片' }}
               </el-button>
-            </el-upload>
+            </div>
           </div>
         </el-form-item>
 
@@ -266,6 +268,12 @@ const beforeImageUpload = (file) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.category-filter {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
 }
 
 .check-in-grid {
@@ -332,18 +340,26 @@ const beforeImageUpload = (file) => {
   left: 10px;
 }
 
-.upload-container {
+.time-tag {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 12px;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.avatar-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
 }
 
-.preview-image {
-  width: 200px;
-  height: 150px;
-  object-fit: cover;
-  border-radius: 4px;
+.avatar-upload {
+  margin-top: 8px;
 }
 
 .preview-dialog :deep(.el-dialog) {

@@ -1,10 +1,18 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAttractionList, createAttraction, updateAttraction, deleteAttraction } from '@/api/attraction'
+import { uploadImageUtil } from '@/utils/utils'
 
 defineOptions({
   name: 'TourismRecommendations'
 })
+
+// 加载状态
+const loading = ref(false)
+
+// 当前选中的分类
+const currentCategory = ref('')
 
 // 情绪分类选项
 const emotionOptions = [
@@ -16,40 +24,39 @@ const emotionOptions = [
 ]
 
 // 推荐列表数据
-const recommendationList = ref([
-  {
-    id: 1,
-    title: '美丽的西湖',
-    image: 'https://img.picui.cn/free/2025/03/08/67cc4dfa9690f.png',
-    details: '西湖景区包含了丰富的自然和人文景观，是杭州市的标志性景点之一。景区内有断桥残雪、平湖秋月等著名景点...',
-    category: 'positive',
-    createTime: Date.now()
-  },
-  {
-    id: 2,
-    title: '美丽的西湖',
-    image: 'https://cdn.picui.cn/vip/2025/02/16/67b1f3d628c67.jpg',
-    details: '西湖景区包含了丰富的自然和人文景观，是杭州市的标志性景点之一。景区内有断桥残雪、平湖秋月等著名景点...',
-    category: 'positive',
-    createTime: Date.now()
-  },
-  {
-    id: 3,
-    title: '美丽的西湖',
-    image: 'https://cdn.picui.cn/vip/2025/01/24/679332c414c07.jpg',
-    details: '西湖景区包含了丰富的自然和人文景观，是杭州市的标志性景点之一。景区内有断桥残雪、平湖秋月等著名景点...',
-    category: 'positive',
-    createTime: Date.now()
-  },
-  {
-    id: 4,
-    title: '美丽的西湖',
-    image: 'https://img.picui.cn/free/2025/03/08/67cc4dfa9690f.png',
-    details: '西湖景区包含了丰富的自然和人文景观，是杭州市的标志性景点之一。景区内有断桥残雪、平湖秋月等著名景点...',
-    category: 'positive',
-    createTime: Date.now()
+const recommendationList = ref([])
+
+// 过滤后的推荐列表
+const filteredRecommendationList = computed(() => {
+  if (!currentCategory.value) return recommendationList.value
+  return recommendationList.value.filter(item => item.category === currentCategory.value)
+})
+
+// 获取景点列表
+const fetchAttractionList = async () => {
+  try {
+    loading.value = true
+    const res = await getAttractionList()
+    if (res.code === 200) {
+      recommendationList.value = res.data.map(item => ({
+        ...item,
+        category: item.categorys[0]?.value || 'neutral'
+      }))
+    } else {
+      ElMessage.error(res.message || '获取景点列表失败')
+    }
+  } catch (error) {
+    console.error('获取景点列表失败:', error)
+    ElMessage.error('获取景点列表失败，请重试')
+  } finally {
+    loading.value = false
   }
-])
+}
+
+// 组件挂载时获取景点列表
+onMounted(() => {
+  fetchAttractionList()
+})
 
 // 图片预览
 const previewVisible = ref(false)
@@ -77,6 +84,9 @@ const editRules = {
   ],
   details: [
     { required: true, message: '请输入详情', trigger: 'blur' }
+  ],
+  image: [
+    { required: true, message: '请上传图片', trigger: 'change' }
   ],
   category: [
     { required: true, message: '请选择分类', trigger: 'change' }
@@ -110,31 +120,39 @@ const handleSave = async () => {
 
   try {
     await editFormRef.value.validate()
-    // TODO: 调用保存API
-    const isNew = !editForm.value.id
 
-    if (isNew) {
-      // 模拟新增
-      const newItem = {
-        ...editForm.value,
-        id: Date.now(),
-        createTime: Date.now()
+    const attractionData = {
+      title: editForm.value.title,
+      details: editForm.value.details,
+      image: editForm.value.image,
+      categoryValues: [editForm.value.category]
+    }
+
+    let res
+    if (editForm.value.id) {
+      // 更新景点
+      res = await updateAttraction(editForm.value.id, attractionData)
+      if (res.code === 200) {
+        ElMessage.success('更新成功')
+        await fetchAttractionList() // 重新获取列表
+      } else {
+        ElMessage.error(res.message || '更新失败')
       }
-      recommendationList.value.unshift(newItem)
-      ElMessage.success('添加成功')
     } else {
-      // 模拟更新
-      const index = recommendationList.value.findIndex(item => item.id === editForm.value.id)
-      if (index !== -1) {
-        recommendationList.value[index] = { ...editForm.value }
+      // 创建景点
+      res = await createAttraction(attractionData)
+      if (res.code === 201) {
+        ElMessage.success('添加成功')
+        await fetchAttractionList() // 重新获取列表
+      } else {
+        ElMessage.error(res.message || '添加失败')
       }
-      ElMessage.success('更新成功')
     }
 
     editDialogVisible.value = false
   } catch (error) {
-    console.error('表单验证失败:', error)
-    ElMessage.error('请检查表单填写是否正确')
+    console.error('保存失败:', error)
+    ElMessage.error('保存失败，请重试')
   }
 }
 
@@ -147,11 +165,12 @@ const handleDelete = async (row) => {
       type: 'warning'
     })
 
-    // TODO: 调用删除API
-    const index = recommendationList.value.findIndex(item => item.id === row.id)
-    if (index !== -1) {
-      recommendationList.value.splice(index, 1)
+    const res = await deleteAttraction(row.id)
+    if (res.code === 200) {
       ElMessage.success('删除成功')
+      await fetchAttractionList() // 重新获取列表
+    } else {
+      ElMessage.error(res.message || '删除失败')
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -162,29 +181,17 @@ const handleDelete = async (row) => {
 }
 
 // 处理图片上传
-const handleImageSuccess = (response) => {
-  if (response.code === 200 && response.data?.url) {
-    editForm.value.image = response.data.url
-    ElMessage.success('图片上传成功')
-  } else {
-    ElMessage.error('图片上传失败')
+const handleImageChange = async (event) => {
+  try {
+    const url = await uploadImageUtil(event)
+    if (url) {
+      editForm.value.image = url
+      ElMessage.success('图片上传成功')
+    }
+  } catch (error) {
+    console.error('图片上传失败:', error)
+    ElMessage.error('上传失败，请重试')
   }
-}
-
-// 上传前检查
-const beforeImageUpload = (file) => {
-  const isImage = file.type.startsWith('image/')
-  const isLt5M = file.size / 1024 / 1024 < 5
-
-  if (!isImage) {
-    ElMessage.error('只能上传图片文件!')
-    return false
-  }
-  if (!isLt5M) {
-    ElMessage.error('图片大小不能超过 5MB!')
-    return false
-  }
-  return true
 }
 </script>
 
@@ -198,8 +205,18 @@ const beforeImageUpload = (file) => {
         </div>
       </template>
 
-      <div class="recommendation-list">
-        <el-card v-for="item in recommendationList" :key="item.id" class="recommendation-item">
+      <!-- 分类筛选 -->
+      <div class="category-filter">
+        <el-radio-group v-model="currentCategory" size="large">
+          <el-radio-button label="">全部</el-radio-button>
+          <el-radio-button v-for="option in emotionOptions" :key="option.value" :label="option.value">
+            {{ option.label }}
+          </el-radio-button>
+        </el-radio-group>
+      </div>
+
+      <div v-loading="loading" class="recommendation-list">
+        <el-card v-for="item in filteredRecommendationList" :key="item.id" class="recommendation-item">
           <div class="item-content">
             <div class="item-image" @mouseenter="showPreview(item.image)" @mouseleave="previewVisible = false">
               <el-image :src="item.image" fit="cover" />
@@ -216,6 +233,7 @@ const beforeImageUpload = (file) => {
                   :type="item.category === 'positive' ? 'success' : item.category === 'negative' ? 'danger' : 'info'">
                   {{emotionOptions.find(opt => opt.value === item.category)?.label || item.category}}
                 </el-tag>
+                <span class="item-time">{{ new Date(item.createTime).toLocaleString() }}</span>
                 <div class="operations">
                   <el-button type="primary" link @click="handleEdit(item)">编辑</el-button>
                   <el-button type="danger" link @click="handleDelete(item)">删除</el-button>
@@ -230,15 +248,16 @@ const beforeImageUpload = (file) => {
     <!-- 编辑对话框 -->
     <el-dialog :title="editForm.id ? '编辑景点' : '添加景点'" v-model="editDialogVisible" width="600px">
       <el-form ref="editFormRef" :model="editForm" :rules="editRules" label-width="100px">
-        <el-form-item label="景点图片">
-          <div class="upload-container">
-            <el-image v-if="editForm.image" :src="editForm.image" class="preview-image" />
-            <el-upload class="image-uploader" action="/api/upload" :show-file-list="false"
-              :on-success="handleImageSuccess" :before-upload="beforeImageUpload" accept="image/*">
-              <el-button type="primary">
+        <el-form-item label="景点图片" prop="image">
+          <div class="avatar-container">
+            <el-avatar :size="150" v-if="editForm.image" :src="editForm.image" shape="square" fit="cover" />
+            <div class="avatar-upload">
+              <input type="file" ref="fileInput" accept="image/jpeg,image/png" style="display: none"
+                @change="handleImageChange" />
+              <el-button size="small" type="primary" @click="$refs.fileInput.click()">
                 {{ editForm.image ? '更换图片' : '上传图片' }}
               </el-button>
-            </el-upload>
+            </div>
           </div>
         </el-form-item>
 
@@ -276,6 +295,12 @@ const beforeImageUpload = (file) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.category-filter {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
 }
 
 .recommendation-list {
@@ -346,23 +371,25 @@ const beforeImageUpload = (file) => {
   align-items: center;
 }
 
+.item-time {
+  color: #909399;
+  font-size: 12px;
+}
+
 .operations {
   display: flex;
   gap: 10px;
 }
 
-.upload-container {
+.avatar-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
 }
 
-.preview-image {
-  width: 200px;
-  height: 150px;
-  object-fit: cover;
-  border-radius: 4px;
+.avatar-upload {
+  margin-top: 8px;
 }
 
 .dialog-footer {
