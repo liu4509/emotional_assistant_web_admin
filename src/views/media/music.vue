@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { VideoPlay, VideoPause } from '@element-plus/icons-vue'
-import { formatDuration } from '@/utils/utils'
+import { formatDuration, uploadAudioUtil, uploadImageUtil } from '@/utils/utils'
+import { getMediaList, createMedia, updateMedia, deleteMedia } from '@/api/media'
 
 defineOptions({
   name: 'MediaMusic'
@@ -17,49 +18,46 @@ const emotionOptions = [
   { label: '非常消极', value: 'very_negative' }
 ]
 
+// 加载状态
+const loading = ref(false)
+
+// 当前选中的分类
+const currentCategory = ref('')
+
 // 音乐列表
-const musicList = ref([
-  {
-    id: 1,
-    title: '罗生门',
-    artist: '梨冻紧',
-    cover: 'https://p2.music.126.net/yN1ke1xYMJ718FiHaDWtYQ==/109951165076380471.jpg?param=300y300',
-    url: 'https://m701.music.126.net/20250315024344/c8cb579fd705785f686572577d673500/jdymusic/obj/wo3DlMOGwrbDjj7DisKw/14096444542/bafc/a068/39f8/9a9e06e5634410b5e7e81df24749e656.mp3?vuutv=bDsTdetX9dDLrxN0LKNDawGMz7NHsfWdE09z4GH355ZoycsapBVc7v9tFcq3pOpZ239KqN1Mjl3rSqIumAyCwh8PPpMYn+lnxUlPON7iqRw=',
-    duration: 180, // 总时长（秒）
-    category: 'positive',
-    description: '轻快的春日旋律'
-  },
-  {
-    id: 2,
-    title: '跳楼机',
-    artist: 'LBI利比',
-    cover: 'https://p1.music.126.net/cmoE8PsdK_Yn9VJ8ZVCGrw==/109951170507596121.jpg?param=300y300',
-    url: 'https://m801.music.126.net/20250315024228/93e460f38dad08573524b483634a83fb/jdymusic/obj/wo3DlMOGwrbDjj7DisKw/58134116941/6d6c/bb3f/6897/4ed130b22b010e87bf19ae65fe18eeb1.mp3?vuutv=IdV3izetV5ILp5SRo9iyi8nBKBiHinv4q6arzbQCY10KuNjuAgBJGVmsJ8M0DVPDCP3TqI1sEbThycfgjMyVUYZmjCh5rWN7/oc86GWc2zU=',
-    duration: 180, // 总时长（秒）
-    category: 'positive',
-    description: '轻快的春日旋律'
-  },
-  {
-    id: 3,
-    title: '于是',
-    artist: '郑润泽',
-    cover: 'https://p2.music.126.net/PEGvmO3OqgGOkx4m9qxAJA==/109951163478499713.jpg?param=300y300',
-    url: 'https://m801.music.126.net/20250315030232/66656a294ed786876098f6cbd3d40abe/jdymusic/obj/wo3DlMOGwrbDjj7DisKw/28481680626/8c3f/dd57/4c1c/84333f57c88a35512dd3ba34a1a1816f.mp3?vuutv=1Q7TlkDNq5Q4m+jVjA/G8luIw34qlYZTSqpHd4wW52vDNGvAGs0/DTN5vbgXbaClOUQsJouh/v93gYGPdhwYl4u9UzalKRya4Li3bf8/9nVZhzWMoWRjCTG6ZQqySfbo',
-    duration: 180, // 总时长（秒）
-    category: 'positive',
-    description: '轻快的春日旋律'
-  },
-  {
-    id: 4,
-    title: '一点',
-    artist: 'Muyoi',
-    cover: 'https://p2.music.126.net/PiSqUS2bxc9x2Zbz2vt4sQ==/109951170099752710.jpg?param=300y300',
-    url: 'https://m701.music.126.net/20250315030438/9283980ef70434d81d9041f30cf4febb/jdymusic/obj/wo3DlMOGwrbDjj7DisKw/56768143391/d2fa/11cb/8724/33adbb19242520ec4597253da0db0a9a.mp3?vuutv=fFYQNyAWqV/b+PdJ1PjdN04VHuhiq+t7zKm/6bwEyTwdOgoiPzgKoiEVgB9yR1FY3k9bmrY+wWss2xxLxpkXYJA9LaUuSdUThLK1X94w5TBM915yvuqSqWeBB/HjX0N2',
-    duration: 180, // 总时长（秒）
-    category: 'positive',
-    description: '轻快的春日旋律'
-  },
-])
+const musicList = ref([])
+
+// 过滤后的音乐列表
+const filteredMusicList = computed(() => {
+  if (!currentCategory.value) return musicList.value
+  return musicList.value.filter(item => item.category === currentCategory.value)
+})
+
+// 获取音乐列表
+const fetchMusicList = async () => {
+  try {
+    loading.value = true
+    const res = await getMediaList()
+    if (res.code === 201 || res.code === 200) {
+      musicList.value = res.data.map(item => ({
+        ...item,
+        category: item.categorys[0]?.value || 'neutral'
+      }))
+    } else {
+      ElMessage.error(res.message || '获取音乐列表失败')
+    }
+  } catch (error) {
+    console.error('获取音乐列表失败:', error)
+    ElMessage.error('获取音乐列表失败，请重试')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 组件挂载时获取音乐列表
+onMounted(() => {
+  fetchMusicList()
+})
 
 // 当前播放的音乐
 const currentMusic = ref(null)
@@ -71,6 +69,17 @@ const currentTime = ref(0)
 const progress = computed(() => {
   if (!currentMusic.value) return 0
   return (currentTime.value / currentMusic.value.duration) * 100
+})
+
+// 计算剩余时间
+const remainingTime = computed(() => {
+  if (!currentMusic.value) return 0
+  return Math.max(0, currentMusic.value.duration - currentTime.value)
+})
+
+// 格式化剩余时间
+const formatRemainingTime = computed(() => {
+  return formatDuration(remainingTime.value)
 })
 
 // 播放音乐
@@ -106,13 +115,16 @@ const editForm = ref({
   cover: '',
   url: '',
   category: '',
-  description: ''
+  description: '',
+  duration: 0
 })
 
 // 编辑表单规则
 const editRules = {
   title: [{ required: true, message: '请输入音乐标题', trigger: 'blur' }],
   artist: [{ required: true, message: '请输入歌手', trigger: 'blur' }],
+  cover: [{ required: true, message: '请上传封面图片', trigger: 'change' }],
+  url: [{ required: true, message: '请上传音乐文件', trigger: 'change' }],
   category: [{ required: true, message: '请选择分类', trigger: 'change' }]
 }
 
@@ -121,7 +133,16 @@ const editFormRef = ref(null)
 
 // 打开编辑对话框
 const handleEdit = (row) => {
-  editForm.value = { ...row }
+  editForm.value = {
+    id: row.id,
+    title: row.title,
+    artist: row.artist,
+    cover: row.cover,
+    url: row.url,
+    category: row.category,
+    description: row.description,
+    duration: row.duration
+  }
   editDialogVisible.value = true
 }
 
@@ -131,26 +152,43 @@ const handleSave = async () => {
 
   try {
     await editFormRef.value.validate()
-    // TODO: 调用保存API
 
-    // 更新本地数据
-    const index = musicList.value.findIndex(item => item.id === editForm.value.id)
-    if (index !== -1) {
-      musicList.value[index] = { ...editForm.value }
-    } else {
-      // 新增
-      musicList.value.push({
-        ...editForm.value,
-        id: Date.now(),
-        duration: 0
-      })
+    const formData = {
+      title: editForm.value.title,
+      artist: editForm.value.artist,
+      cover: editForm.value.cover,
+      url: editForm.value.url,
+      duration: editForm.value.duration,
+      description: editForm.value.description,
+      categoryValues: [editForm.value.category]
     }
 
-    ElMessage.success('保存成功')
-    editDialogVisible.value = false
+    let res
+
+    if (editForm.value.id) {
+      // 更新
+      res = await updateMedia(editForm.value.id, formData)
+      if (res.code === 201 || res.code === 200) {
+        ElMessage.success('更新成功')
+        await fetchMusicList() // 重新获取列表
+        editDialogVisible.value = false
+      } else {
+        ElMessage.error(res.message || '更新失败')
+      }
+    } else {
+      // 新增
+      res = await createMedia(formData)
+      if (res.code === 201 || res.code === 200) {
+        ElMessage.success('添加成功')
+        await fetchMusicList() // 重新获取列表
+        editDialogVisible.value = false
+      } else {
+        ElMessage.error(res.message || '添加失败')
+      }
+    }
   } catch (error) {
-    console.error('表单验证失败:', error)
-    ElMessage.error('请检查表单填写是否正确')
+    console.error('保存失败:', error)
+    ElMessage.error('保存失败，请检查表单填写是否正确')
   }
 }
 
@@ -167,13 +205,12 @@ const handleDelete = async (row) => {
       }
     )
 
-    // TODO: 调用删除API
-
-    // 更新本地数据
-    const index = musicList.value.findIndex(item => item.id === row.id)
-    if (index !== -1) {
-      musicList.value.splice(index, 1)
+    const res = await deleteMedia(row.id)
+    if (res.code === 201 || res.code === 200) {
       ElMessage.success('删除成功')
+      await fetchMusicList() // 重新获取列表
+    } else {
+      ElMessage.error(res.message || '删除失败')
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -192,15 +229,59 @@ const handleAdd = () => {
     cover: '',
     url: '',
     category: '',
-    description: ''
+    description: '',
+    duration: 0
   }
   editDialogVisible.value = true
+}
+
+// 处理封面上传
+const handleCoverChange = async (event) => {
+  try {
+    const url = await uploadImageUtil(event)
+    if (url) {
+      editForm.value.cover = url
+      ElMessage.success('封面上传成功')
+    }
+  } catch (error) {
+    console.error('封面上传失败:', error)
+    ElMessage.error('封面上传失败，请重试')
+  }
+}
+
+// 处理音乐文件上传
+const handleMusicChange = async (event) => {
+  try {
+    const url = await uploadAudioUtil(event)
+    if (url) {
+      editForm.value.url = url
+
+      // 创建临时音频元素获取时长
+      const audio = new Audio(url)
+      audio.addEventListener('loadedmetadata', () => {
+        if (audio.duration && !isNaN(audio.duration)) {
+          editForm.value.duration = Math.round(audio.duration)
+          ElMessage.success('音乐时长已更新: ' + formatDuration(editForm.value.duration))
+        }
+      })
+      audio.addEventListener('error', () => {
+        // 如果无法加载，设置默认时长
+        editForm.value.duration = 180
+        ElMessage.warning('无法获取音乐时长，已设置默认值')
+      })
+      fetchMusicList()
+      ElMessage.success('音乐文件上传成功')
+    }
+  } catch (error) {
+    console.error('音乐文件上传失败:', error)
+    ElMessage.error('音乐文件上传失败，请重试')
+  }
 }
 </script>
 
 <template>
   <div class="music-container">
-    <el-card>
+    <el-card v-loading="loading">
       <template #header>
         <div class="card-header">
           <h3>音乐管理</h3>
@@ -208,9 +289,19 @@ const handleAdd = () => {
         </div>
       </template>
 
+      <!-- 分类筛选 -->
+      <div class="category-filter">
+        <el-radio-group v-model="currentCategory" size="large">
+          <el-radio-button label="">全部</el-radio-button>
+          <el-radio-button v-for="option in emotionOptions" :key="option.value" :label="option.value">
+            {{ option.label }}
+          </el-radio-button>
+        </el-radio-group>
+      </div>
+
       <!-- 音乐列表 -->
       <div class="music-list">
-        <div v-for="item in musicList" :key="item.id" class="music-item"
+        <div v-for="item in filteredMusicList" :key="item.id" class="music-item"
           :class="{ 'is-playing': currentMusic?.id === item.id, 'is-active': isPlaying }">
           <div class="music-cover" @click="playMusic(item)">
             <el-image :src="item.cover" fit="cover" />
@@ -227,12 +318,18 @@ const handleAdd = () => {
           <div class="music-info">
             <div class="music-title">{{ item.title }}</div>
             <div class="music-artist">{{ item.artist }}</div>
-            <el-progress :percentage="currentMusic?.id === item.id ? progress : 0"
-              :format="() => formatDuration(currentTime)" :stroke-width="4" :show-text="currentMusic?.id === item.id" />
+            <div class="progress-container">
+              <el-progress :percentage="currentMusic?.id === item.id ? progress : 0" :stroke-width="4"
+                :show-text="false" />
+              <div class="time-display">
+                {{ currentMusic?.id === item.id ? formatRemainingTime : formatDuration(item.duration) }}
+              </div>
+            </div>
           </div>
 
           <div class="music-category">
-            <el-tag :type="item.category === 'positive' ? 'success' : item.category === 'negative' ? 'danger' : 'info'">
+            <el-tag :type="item.category === 'positive' || item.category === 'very_positive' ? 'success' :
+              item.category === 'negative' || item.category === 'very_negative' ? 'danger' : 'info'">
               {{emotionOptions.find(opt => opt.value === item.category)?.label}}
             </el-tag>
           </div>
@@ -260,16 +357,33 @@ const handleAdd = () => {
         </el-form-item>
 
         <el-form-item label="封面图片" prop="cover">
-          <el-upload class="cover-uploader" action="/api/upload" :show-file-list="false" accept="image/*">
-            <el-image v-if="editForm.cover" :src="editForm.cover" fit="cover" class="cover-preview" />
-            <el-button v-else>上传封面</el-button>
-          </el-upload>
+          <div class="avatar-container">
+            <el-avatar :size="100" v-if="editForm.cover" :src="editForm.cover" shape="square" fit="cover" />
+            <div class="avatar-upload">
+              <input type="file" ref="fileInput" accept="image/jpeg,image/png" style="display: none"
+                @change="handleCoverChange" />
+              <el-button size="small" type="primary" @click="$refs.fileInput.click()">
+                {{ editForm.cover ? '更换封面' : '上传封面' }}
+              </el-button>
+            </div>
+          </div>
         </el-form-item>
 
         <el-form-item label="音乐文件" prop="url">
-          <el-upload class="music-uploader" action="/api/upload" :show-file-list="false" accept="audio/*">
-            <el-button>{{ editForm.url ? '重新上传' : '上传音乐' }}</el-button>
-          </el-upload>
+          <div class="avatar-container">
+            <div v-if="editForm.url" class="music-file-info">
+              <el-icon>
+                <VideoPlay />
+              </el-icon>
+              <span>已上传音乐文件 ({{ formatDuration(editForm.duration) }})</span>
+            </div>
+            <div class="avatar-upload">
+              <input type="file" ref="musicInput" accept="audio/*" style="display: none" @change="handleMusicChange" />
+              <el-button size="small" type="primary" @click="$refs.musicInput.click()">
+                {{ editForm.url ? '更换音乐' : '上传音乐' }}
+              </el-button>
+            </div>
+          </div>
         </el-form-item>
 
         <el-form-item label="情绪分类" prop="category">
@@ -302,6 +416,12 @@ const handleAdd = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.category-filter {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
 }
 
 .music-list {
@@ -396,10 +516,24 @@ const handleAdd = () => {
   gap: 10px;
 }
 
-.cover-preview {
-  width: 100px;
-  height: 100px;
-  border-radius: 8px;
+.upload-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.input-url {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.music-file-info {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  color: #606266;
 }
 
 .dialog-footer {
@@ -417,5 +551,30 @@ const handleAdd = () => {
   to {
     transform: rotate(360deg);
   }
+}
+
+.avatar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.avatar-upload {
+  margin-top: 8px;
+}
+
+.progress-container {
+  position: relative;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.time-display {
+  position: absolute;
+  right: 0;
+  top: -20px;
+  font-size: 12px;
+  color: #909399;
 }
 </style>

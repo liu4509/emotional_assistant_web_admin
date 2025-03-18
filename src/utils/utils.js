@@ -1,4 +1,4 @@
-import { uploadImage } from '@/api/upload'
+import { uploadFile } from '@/api/upload'
 import { ElMessage } from 'element-plus'
 
 // 格式化时间
@@ -58,12 +58,76 @@ export const uploadImageUtil = async (event) => {
   const formData = new FormData()
   formData.append('file', file)
 
-  const res = await uploadImage(formData)
+  const res = await uploadFile(formData)
 
-  if (res.code === 201 && res.data?.md5) {
-    ElMessage.success('上传成功')
-    return res.data.links.url
+  if (res.code === 201 && res.data) {
+    ElMessage.success('图片上传成功')
+    return res.data
   } else {
-    ElMessage.error(res.message || '上传失败')
+    ElMessage.error(res.message || '图片上传失败')
+  }
+}
+
+export const uploadAudioUtil = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  // 验证文件类型
+  if (!['audio/mpeg', 'audio/mp3', 'audio/wav'].includes(file.type)) {
+    ElMessage.error('只能上传MP3/WAV格式的音频')
+    return
+  }
+
+  // 验证文件大小（最大10MB）
+  if (file.size / 1024 / 1024 > 10) {
+    ElMessage.error('音频大小不能超过10MB')
+    return
+  }
+
+  // 创建FormData
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const res = await uploadFile(formData)
+
+  if (res.code === 201 && res.data) {
+    ElMessage.success('音频上传成功')
+    return res.data
+  } else {
+    ElMessage.error(res.message || '音频上传失败')
+  }
+}
+
+export const uploadVideoUtil = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  // 验证文件类型
+  if (
+    !['video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv', 'video/mpeg'].includes(
+      file.type,
+    )
+  ) {
+    ElMessage.error('只能上传MP4/AVI/MOV/WMV/FLV/MPEG格式的视频')
+    return
+  }
+
+  // 验证文件大小（最大100MB）
+  if (file.size / 1024 / 1024 > 100) {
+    ElMessage.error('视频大小不能超过100MB')
+    return
+  }
+
+  // 创建FormData
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const res = await uploadFile(formData)
+
+  if (res.code === 201 && res.data) {
+    ElMessage.success('视频上传成功')
+    return res.data
+  } else {
+    ElMessage.error(res.message || '视频上传失败')
   }
 }

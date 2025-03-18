@@ -38,7 +38,7 @@ const fetchArticleList = async () => {
   try {
     loading.value = true
     const res = await getArticleList()
-    if (res.code === 200) {
+    if (res.code === 201 || res.code === 200) {
       articleList.value = res.data.map(item => ({
         ...item,
         category: item.categorys[0]?.value || 'neutral',
@@ -116,7 +116,7 @@ const handleSave = async () => {
     if (editForm.value.id) {
       // 更新文章
       res = await updateArticle(editForm.value.id, articleData)
-      if (res.code === 200) {
+      if (res.code === 201 || res.code === 200) {
         ElMessage.success('更新成功')
         await fetchArticleList() // 重新获取列表
       } else {
@@ -125,7 +125,7 @@ const handleSave = async () => {
     } else {
       // 创建文章
       res = await createArticle(articleData)
-      if (res.code === 201) {
+      if (res.code === 201 || res.code === 200) {
         ElMessage.success('创建成功')
         await fetchArticleList() // 重新获取列表
       } else {
@@ -154,7 +154,7 @@ const handleDelete = async (row) => {
     )
 
     const res = await deleteArticle(row.id)
-    if (res.code === 200) {
+    if (res.code === 201 || res.code === 200) {
       ElMessage.success('删除成功')
       await fetchArticleList() // 重新获取列表
     } else {

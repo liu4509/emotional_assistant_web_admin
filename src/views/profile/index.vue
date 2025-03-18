@@ -30,7 +30,7 @@ const fetchUserInfo = async () => {
   try {
     loading.value = true
     const res = await getUserInfo()
-    if (res.code === 200) {
+    if (res.code === 201 || res.code === 200) {
       // 更新store中的用户信息
       userStore.setUserInfo(res.data.userInfo)
     } else {
@@ -77,7 +77,7 @@ const saveChanges = async () => {
 
     const res = await adminUpdateUser(userData)
 
-    if (res.code === 201) {
+    if (res.code === 201 || res.code === 200) {
       // 更新本地用户信息
       await fetchUserInfo()
       ElMessage.success('个人信息更新成功')
@@ -146,7 +146,7 @@ const sendVerifyCode = async () => {
       address: userInfo.value.email,
       ttl: countdown.value
     })
-    if (res.code === 200) {
+    if (res.code === 201 || res.code === 200) {
       // 开始倒计时
       timer = setInterval(() => {
         if (countdown.value > 0) {
@@ -183,7 +183,7 @@ const handleChangePassword = async () => {
       verifyCode: passwordForm.value.verifyCode
     })
 
-    if (res.code === 201) {
+    if (res.code === 201 || res.code === 200) {
       ElMessage.success('密码修改成功')
       passwordDialogVisible.value = false
       resetPasswordForm()
@@ -233,44 +233,6 @@ const handleAvatarChange = async (event) => {
     loading.value = false
   }
 }
-// const handleAvatarChange = async (event) => {
-//   const file = event.target.files[0]
-//   if (!file) return
-
-//   // 验证文件类型
-//   if (!['image/jpeg', 'image/png'].includes(file.type)) {
-//     ElMessage.error('只能上传JPG/PNG格式的图片')
-//     return
-//   }
-
-//   // 验证文件大小（最大2MB）
-//   if (file.size / 1024 / 1024 > 2) {
-//     ElMessage.error('图片大小不能超过2MB')
-//     return
-//   }
-
-//   // 创建FormData
-//   const formData = new FormData()
-//   formData.append('file', file)
-
-//   try {
-//     loading.value = true
-//     const res = await uploadImage(formData)
-
-//     if (res.code === 201 && res.data?.md5) {
-//       form.value.avatar = res.data.links.url
-//       userInfo.value.avatar = form.value.avatar
-//       ElMessage.success('头像上传成功')
-//     } else {
-//       ElMessage.error(res.message || '上传失败')
-//     }
-//   } catch (error) {
-//     console.error('头像上传失败:', error)
-//     ElMessage.error('上传失败，请重试')
-//   } finally {
-//     loading.value = false
-//   }
-// }
 </script>
 
 <template>

@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { VideoPlay, Edit, Delete } from '@element-plus/icons-vue'
 import { getVideoList, createVideo, updateVideo, deleteVideo } from '@/api/video'
-import { uploadImageUtil } from '@/utils/utils'
+import { uploadImageUtil, uploadVideoUtil } from '@/utils/utils'
 
 defineOptions({
   name: 'PsychologyVideos'
@@ -38,7 +38,7 @@ const fetchVideoList = async () => {
   try {
     loading.value = true
     const res = await getVideoList()
-    if (res.code === 200) {
+    if (res.code === 201 || res.code === 200) {
       videoList.value = res.data.map(item => ({
         ...item,
         category: item.categorys[0]?.value || 'neutral'
@@ -77,13 +77,17 @@ const editForm = ref({
   description: '',
   cover: '',
   url: '',
-  category: ''
+  category: '',
+  duration: 0
 })
+
+// 上传中状态
+const uploading = ref(false)
 
 // 编辑表单规则
 const editRules = {
   title: [{ required: true, message: '请输入视频标题', trigger: 'blur' }],
-  url: [{ required: true, message: '请输入视频链接', trigger: 'blur' }],
+  url: [{ required: true, message: '请上传视频文件', trigger: 'change' }],
   cover: [{ required: true, message: '请上传视频封面', trigger: 'blur' }],
   category: [{ required: true, message: '请选择分类', trigger: 'change' }]
 }
@@ -100,28 +104,71 @@ const handleEdit = (row) => {
 // 处理图片上传
 const handleCoverChange = async (event) => {
   try {
+    uploading.value = true
     const url = await uploadImageUtil(event)
     if (url) {
       editForm.value.cover = url
+      ElMessage.success('封面上传成功')
     }
   } catch (error) {
     console.error('封面上传失败:', error)
     ElMessage.error('上传失败，请重试')
+  } finally {
+    uploading.value = false
+  }
+}
+
+// 处理视频文件上传
+const handleVideoChange = async (event) => {
+  try {
+    uploading.value = true
+    const url = await uploadVideoUtil(event)
+    if (url) {
+      editForm.value.url = url
+
+      // 创建临时视频元素获取时长
+      const video = document.createElement('video')
+      video.src = url
+      video.addEventListener('loadedmetadata', () => {
+        if (video.duration && !isNaN(video.duration)) {
+          editForm.value.duration = Math.round(video.duration)
+          ElMessage.success('视频时长已更新: ' + Math.round(video.duration) + '秒')
+        }
+      })
+      video.addEventListener('error', () => {
+        // 如果无法加载，设置默认时长
+        ElMessage.warning('无法获取视频时长')
+      })
+
+      ElMessage.success('视频文件上传成功')
+    }
+  } catch (error) {
+    console.error('视频文件上传失败:', error)
+    ElMessage.error('视频文件上传失败，请重试')
+  } finally {
+    uploading.value = false
   }
 }
 
 // 保存编辑
 const handleSave = async () => {
   if (!editFormRef.value) return
+  if (uploading.value) {
+    ElMessage.warning('正在上传文件，请稍候...')
+    return
+  }
 
   try {
     await editFormRef.value.validate()
+
+    uploading.value = true
 
     const videoData = {
       title: editForm.value.title,
       description: editForm.value.description,
       cover: editForm.value.cover,
       url: editForm.value.url,
+      duration: editForm.value.duration || 0,
       categoryValues: [editForm.value.category]
     }
 
@@ -129,7 +176,7 @@ const handleSave = async () => {
     if (editForm.value.id) {
       // 更新视频
       res = await updateVideo(editForm.value.id, videoData)
-      if (res.code === 200) {
+      if (res.code === 201 || res.code === 200) {
         ElMessage.success('更新成功')
         await fetchVideoList() // 重新获取列表
       } else {
@@ -138,7 +185,7 @@ const handleSave = async () => {
     } else {
       // 创建视频
       res = await createVideo(videoData)
-      if (res.code === 201) {
+      if (res.code === 201 || res.code === 200) {
         ElMessage.success('创建成功')
         await fetchVideoList() // 重新获取列表
       } else {
@@ -150,6 +197,8 @@ const handleSave = async () => {
   } catch (error) {
     console.error('保存失败:', error)
     ElMessage.error('保存失败，请重试')
+  } finally {
+    uploading.value = false
   }
 }
 
@@ -167,7 +216,7 @@ const handleDelete = async (row) => {
     )
 
     const res = await deleteVideo(row.id)
-    if (res.code === 200) {
+    if (res.code === 201 || res.code === 200) {
       ElMessage.success('删除成功')
       await fetchVideoList() // 重新获取列表
     } else {
@@ -189,7 +238,8 @@ const handleAdd = () => {
     description: '',
     cover: '',
     url: '',
-    category: ''
+    category: '',
+    duration: 0
   }
   editDialogVisible.value = true
 }
@@ -235,9 +285,8 @@ const handleAdd = () => {
           <div class="video-content">
             <div class="video-title">{{ item.title }}</div>
             <div class="video-meta">
-              <el-tag
-                :type="item.category === 'positive' ? 'success' : item.category === 'negative' ? 'danger' : 'info'"
-                size="small">
+              <el-tag :type="item.category === 'positive' || item.category === 'very_positive' ? 'success' :
+                item.category === 'negative' || item.category === 'very_negative' ? 'danger' : 'info'" size="small">
                 {{emotionOptions.find(opt => opt.value === item.category)?.label}}
               </el-tag>
               <span class="video-time">{{ new Date(item.createTime).toLocaleString() }}</span>
@@ -267,8 +316,8 @@ const handleAdd = () => {
     <el-dialog v-model="previewDialogVisible" :title="currentVideo?.title" width="800px" destroy-on-close center>
       <video v-if="currentVideo" :src="currentVideo.url" controls class="preview-video"></video>
       <div class="video-info">
-        <el-tag
-          :type="currentVideo?.category === 'positive' ? 'success' : currentVideo?.category === 'negative' ? 'danger' : 'info'">
+        <el-tag :type="currentVideo?.category === 'positive' || currentVideo?.category === 'very_positive' ? 'success' :
+          currentVideo?.category === 'negative' || currentVideo?.category === 'very_negative' ? 'danger' : 'info'">
           {{emotionOptions.find(opt => opt.value === currentVideo?.category)?.label}}
         </el-tag>
         <div class="video-description">{{ currentVideo?.description }}</div>
@@ -292,15 +341,28 @@ const handleAdd = () => {
             <div class="avatar-upload">
               <input type="file" ref="fileInput" accept="image/jpeg,image/png" style="display: none"
                 @change="handleCoverChange" />
-              <el-button size="small" type="primary" @click="$refs.fileInput.click()">
-                上传图片
+              <el-button size="small" type="primary" @click="$refs.fileInput.click()" :loading="uploading">
+                {{ editForm.cover ? '更换封面' : '上传封面' }}
               </el-button>
             </div>
           </div>
         </el-form-item>
 
-        <el-form-item label="视频链接" prop="url">
-          <el-input v-model="editForm.url" placeholder="例如: https://example.com/video.mp4" />
+        <el-form-item label="视频文件" prop="url">
+          <div class="avatar-container">
+            <div v-if="editForm.url" class="video-file-info">
+              <el-icon>
+                <VideoPlay />
+              </el-icon>
+              <span>已上传视频文件{{ editForm.duration ? ' (' + editForm.duration + '秒)' : '' }}</span>
+            </div>
+            <div class="avatar-upload">
+              <input type="file" ref="videoInput" accept="video/*" style="display: none" @change="handleVideoChange" />
+              <el-button size="small" type="primary" @click="$refs.videoInput.click()" :loading="uploading">
+                {{ editForm.url ? '更换视频' : '上传视频' }}
+              </el-button>
+            </div>
+          </div>
         </el-form-item>
 
         <el-form-item label="情绪分类" prop="category">
@@ -312,8 +374,8 @@ const handleAdd = () => {
 
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="editDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSave">确定</el-button>
+          <el-button @click="editDialogVisible = false" :disabled="uploading">取消</el-button>
+          <el-button type="primary" @click="handleSave" :loading="uploading">确定</el-button>
         </span>
       </template>
     </el-dialog>
@@ -466,5 +528,13 @@ const handleAdd = () => {
 
 .avatar-upload {
   margin-top: 8px;
+}
+
+.video-file-info {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  color: #606266;
 }
 </style>
