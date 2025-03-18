@@ -1,3 +1,6 @@
+import { uploadImage } from '@/api/upload'
+import { ElMessage } from 'element-plus'
+
 // 格式化时间
 export const formatDate = (timestamp) => {
   if (!timestamp) return '-'
@@ -33,4 +36,34 @@ export function formatNumber(num) {
     return (num / 10000).toFixed(1) + '万'
   }
   return num.toString()
+}
+
+export const uploadImageUtil = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  // 验证文件类型
+  if (!['image/jpeg', 'image/png'].includes(file.type)) {
+    ElMessage.error('只能上传JPG/PNG格式的图片')
+    return
+  }
+
+  // 验证文件大小（最大2MB）
+  if (file.size / 1024 / 1024 > 2) {
+    ElMessage.error('图片大小不能超过2MB')
+    return
+  }
+
+  // 创建FormData
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const res = await uploadImage(formData)
+
+  if (res.code === 201 && res.data?.md5) {
+    ElMessage.success('上传成功')
+    return res.data.links.url
+  } else {
+    ElMessage.error(res.message || '上传失败')
+  }
 }

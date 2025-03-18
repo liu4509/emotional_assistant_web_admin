@@ -1,7 +1,9 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Link, Edit, Delete, Plus } from '@element-plus/icons-vue'
+import { createGame, deleteGame, getGameList, updateGame } from '@/api/game'
+import { uploadImageUtil } from '@/utils/utils'
 
 defineOptions({
   name: 'GamesManagement'
@@ -15,37 +17,34 @@ const emotionOptions = [
   { label: '消极', value: 'negative' },
   { label: '非常消极', value: 'very_negative' }
 ]
-
-// 游戏列表
-const gamesList = ref([
-  {
-    id: 1,
-    title: '色彩方块消消看',
-    description: '这是一款消消看游戏，游戏虽然没有花哨的画面但是游戏性和挑战性依旧非常高，看看你能得到多少分，大家快来相互比一比吧！',
-    image: 'https://img.freepik.com/free-vector/mobile-game-match-three-game-assets_107791-1836.jpg',
-    url: 'https://www.7k7k.com/flash/79305.htm',
-    category: 'positive',
-    createTime: '2024-03-15 10:00:00'
-  },
-  {
-    id: 2,
-    title: '数独挑战',
-    description: '玩数独游戏，感受数独游戏的规则，锻炼推理和逻辑思维能力，体会自主游戏的乐趣，初步养成乐于挑战的学习品质。拖动游戏下方的角色到上方的格子里，格子填满并且全部正确后过关。',
-    image: 'https://img.freepik.com/free-vector/sudoku-game-concept-illustration_114360-1908.jpg',
-    url: 'https://www.7k7k.com/flash/156420.htm',
-    category: 'neutral',
-    createTime: '2024-03-16 14:30:00'
-  },
-  {
-    id: 3,
-    title: '节奏大师电脑版',
-    description: '火热的休闲音乐挑战类手机游戏《节奏大师》现在也有了电脑在线版本啦！老少咸宜的游戏模式吸引了无数粉丝，还在等什么，赶紧让热门，流行，动漫，经典四大种类的音乐冲击你的感官，赶紧让动人的旋律音符在你的指尖跃动，在音乐中忘我地游戏吧',
-    image: 'https://img.freepik.com/free-vector/gradient-japanese-temple-with-lake_52683-44985.jpg',
-    url: 'https://www.7k7k.com/flash/126556.htm',
-    category: 'very_positive',
-    createTime: '2024-03-17 09:15:00'
+const isEdit = ref(true)
+const gamesList = ref([])
+// 获取游戏列表
+const fetchGameList = async () => {
+  try {
+    const res = await getGameList()
+    if (res.code === 200) {
+      let vo = []
+      res.data.map(item => {
+        vo.push({
+          ...item,
+          category: item.categorys[0]?.value
+        })
+      })
+      gamesList.value = vo || []
+    } else {
+      ElMessage.error(res.message || '获取游戏列表失败')
+    }
+  } catch (error) {
+    console.error('获取游戏列表失败:', error)
+    ElMessage.error('获取游戏列表失败，请重试')
   }
-])
+}
+
+// 组件挂载时获取游戏列表
+onMounted(() => {
+  fetchGameList()
+})
 
 // 编辑对话框
 const editDialogVisible = ref(false)
@@ -55,7 +54,7 @@ const editForm = ref({
   description: '',
   image: '',
   url: '',
-  category: ''
+  category: '',
 })
 
 // 编辑表单规则
@@ -78,31 +77,71 @@ const handleEdit = (row) => {
 const handleSave = async () => {
   if (!editFormRef.value) return
 
-  try {
-    await editFormRef.value.validate()
+  if (isEdit.value) {
+    try {
+      await editFormRef.value.validate()
+      // TODO: 调用保存API
+      const res = await updateGame(editForm.value.id, {
+        title: editForm.value.title,
+        description: editForm.value.description,
+        image: editForm.value.image,
+        url: editForm.value.url,
+        categoryValues: [editForm.value.category]
+      })
+      if (res.code === 200) {
+        ElMessage.success('保存成功')
+        fetchGameList()
+        editDialogVisible.value = false
+      } else {
+        ElMessage.error(res.message || '保存失败')
+      }
+    } catch (error) {
+      console.error('表单验证失败:', error)
+      ElMessage.error('请检查表单填写是否正确')
+    } finally {
+      editDialogVisible.value = false
+      isEdit.value = true
+    }
+  } else {
     // TODO: 调用保存API
 
-    // 更新本地数据
-    const index = gamesList.value.findIndex(item => item.id === editForm.value.id)
-    if (index !== -1) {
-      gamesList.value[index] = { ...editForm.value }
-    } else {
-      // 新增
-      gamesList.value.push({
-        ...editForm.value,
-        id: Date.now(),
-        createTime: new Date().toLocaleString()
+    try {
+      await editFormRef.value.validate()
+      // TODO: 调用保存API
+      const res = await createGame({
+        title: editForm.value.title,
+        description: editForm.value.description,
+        image: editForm.value.image,
+        url: editForm.value.url,
+        categoryValues: [editForm.value.category]
       })
+      if (res.code === 201) {
+        ElMessage.success('新建游戏保存成功')
+        fetchGameList()
+        editDialogVisible.value = false
+        isEdit.value = true
+      } else {
+        ElMessage.error(res.message || '新建游戏保存失败')
+      }
+    } catch (error) {
+      console.error('表单验证失败:', error)
+      ElMessage.error('请检查表单填写是否正确')
+    } finally {
+      editDialogVisible.value = false
+      isEdit.value = true
     }
-
-    ElMessage.success('保存成功')
-    editDialogVisible.value = false
-  } catch (error) {
-    console.error('表单验证失败:', error)
-    ElMessage.error('请检查表单填写是否正确')
   }
 }
-
+// 处理头像上传
+const handleAvatarChange = async (event) => {
+  try {
+    const url = await uploadImageUtil(event)
+    editForm.value.image = url
+  } catch (error) {
+    console.error('头像上传失败:', error)
+    ElMessage.error('上传失败，请重试')
+  }
+}
 // 删除游戏
 const handleDelete = async (row) => {
   try {
@@ -115,14 +154,11 @@ const handleDelete = async (row) => {
         type: 'warning'
       }
     )
-
     // TODO: 调用删除API
-
-    // 更新本地数据
-    const index = gamesList.value.findIndex(item => item.id === row.id)
-    if (index !== -1) {
-      gamesList.value.splice(index, 1)
+    const res = await deleteGame(row.id)
+    if (res.code === 200) {
       ElMessage.success('删除成功')
+      fetchGameList()
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -134,13 +170,15 @@ const handleDelete = async (row) => {
 
 // 新增游戏
 const handleAdd = () => {
+  isEdit.value = false
   editForm.value = {
     id: '',
     title: '',
     description: '',
     image: '',
     url: '',
-    category: ''
+    category: '',
+    categoryValues: []
   }
   editDialogVisible.value = true
 }
@@ -223,11 +261,16 @@ const openGameUrl = (url) => {
         </el-form-item>
 
         <el-form-item label="游戏图片" prop="image">
-          <el-upload class="image-uploader" action="/api/upload" :show-file-list="false" accept="image/*">
-            <el-image v-if="editForm.image" :src="editForm.image" fit="cover" class="image-preview" />
-            <el-button v-else>上传图片</el-button>
-          </el-upload>
-          <el-input v-model="editForm.image" placeholder="或输入图片URL" class="mt-2" />
+          <div class="avatar-container">
+            <el-avatar :size="150" :src="editForm.image" shape="square" fit="cover" />
+            <div class="avatar-upload">
+              <input type="file" ref="fileInput" accept="image/jpeg,image/png" style="display: none"
+                @change="handleAvatarChange" />
+              <el-button size="small" type="primary" @click="$refs.fileInput.click()">
+                上传图片
+              </el-button>
+            </div>
+          </div>
         </el-form-item>
 
         <el-form-item label="游戏链接" prop="url">
@@ -359,5 +402,12 @@ const openGameUrl = (url) => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.avatar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
 }
 </style>

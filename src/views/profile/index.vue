@@ -2,9 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
-import { formatDate } from '@/utils/utils'
+import { formatDate, uploadImageUtil } from '@/utils/utils'
 import { getUserInfo, adminUpdateUser, updateAdminPassword, sendVerifyCodeAPI } from '@/api/user'
-import { uploadImage } from '@/api/upload'
 
 defineOptions({
   name: 'ProfilePage',
@@ -222,36 +221,11 @@ const handleDialogClose = () => {
 }
 // 处理头像上传
 const handleAvatarChange = async (event) => {
-  const file = event.target.files[0]
-  if (!file) return
-
-  // 验证文件类型
-  if (!['image/jpeg', 'image/png'].includes(file.type)) {
-    ElMessage.error('只能上传JPG/PNG格式的图片')
-    return
-  }
-
-  // 验证文件大小（最大2MB）
-  if (file.size / 1024 / 1024 > 2) {
-    ElMessage.error('图片大小不能超过2MB')
-    return
-  }
-
-  // 创建FormData
-  const formData = new FormData()
-  formData.append('file', file)
-
   try {
     loading.value = true
-    const res = await uploadImage(formData)
-
-    if (res.code === 201 && res.data?.md5) {
-      form.value.avatar = res.data.links.url
-      userInfo.value.avatar = form.value.avatar
-      ElMessage.success('头像上传成功')
-    } else {
-      ElMessage.error(res.message || '上传失败')
-    }
+    const url = await uploadImageUtil(event)
+    form.value.avatar = url
+    userInfo.value.avatar = url
   } catch (error) {
     console.error('头像上传失败:', error)
     ElMessage.error('上传失败，请重试')
@@ -259,6 +233,44 @@ const handleAvatarChange = async (event) => {
     loading.value = false
   }
 }
+// const handleAvatarChange = async (event) => {
+//   const file = event.target.files[0]
+//   if (!file) return
+
+//   // 验证文件类型
+//   if (!['image/jpeg', 'image/png'].includes(file.type)) {
+//     ElMessage.error('只能上传JPG/PNG格式的图片')
+//     return
+//   }
+
+//   // 验证文件大小（最大2MB）
+//   if (file.size / 1024 / 1024 > 2) {
+//     ElMessage.error('图片大小不能超过2MB')
+//     return
+//   }
+
+//   // 创建FormData
+//   const formData = new FormData()
+//   formData.append('file', file)
+
+//   try {
+//     loading.value = true
+//     const res = await uploadImage(formData)
+
+//     if (res.code === 201 && res.data?.md5) {
+//       form.value.avatar = res.data.links.url
+//       userInfo.value.avatar = form.value.avatar
+//       ElMessage.success('头像上传成功')
+//     } else {
+//       ElMessage.error(res.message || '上传失败')
+//     }
+//   } catch (error) {
+//     console.error('头像上传失败:', error)
+//     ElMessage.error('上传失败，请重试')
+//   } finally {
+//     loading.value = false
+//   }
+// }
 </script>
 
 <template>
