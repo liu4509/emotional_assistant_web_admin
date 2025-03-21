@@ -68,7 +68,7 @@ const handleLogin = async () => {
   <div class="login-container">
     <div class="login-card">
       <div class="title">
-        <h2>情感助手管理系统</h2>
+        <h2>心情治愈网站</h2>
       </div>
       <el-form ref="loginFormRef" :model="loginForm" :rules="rules" label-width="0" class="login-form">
         <el-form-item prop="username">
