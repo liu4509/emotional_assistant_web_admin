@@ -80,7 +80,7 @@ export const useUserStore = defineStore(
   },
   {
     persist: {
-      key: 'user-store',
+      key: 'admin-store',
       storage: localStorage,
       paths: ['userInfo', 'accessToken'],
     },

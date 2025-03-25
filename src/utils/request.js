@@ -5,14 +5,14 @@ import router from '@/router'
 // console.log(url)
 const service = axios.create({
   // baseURL: import.meta.env.VITE_API_BASE_URL,
-  baseURL: 'http://localhost:3000',
+  baseURL: 'http://localhost/api',
   timeout: 10000,
 })
 
 // 请求拦截器
 service.interceptors.request.use(
   (config) => {
-    const userStore = JSON.parse(localStorage.getItem('user-store') || '{}')
+    const userStore = JSON.parse(localStorage.getItem('admin-store') || '{}')
     const token = userStore?.accessToken
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
