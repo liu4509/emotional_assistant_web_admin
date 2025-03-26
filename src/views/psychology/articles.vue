@@ -39,7 +39,7 @@ const fetchArticleList = async () => {
     loading.value = true
     const res = await getArticleList()
     if (res.code === 201 || res.code === 200) {
-      articleList.value = res.data.map(item => ({
+      articleList.value = res.data.article.map(item => ({
         ...item,
         category: item.categorys[0]?.value || 'neutral',
         cover: item.cover

@@ -24,6 +24,6 @@ COPY --from=build-stage /app/nginx.conf /etc/nginx/conf.d/default.conf
 # RUN apt install nginx-module-njs
 
 # 容器暴露端口
-EXPOSE 80
+EXPOSE 8080
 # 容器跑起来执行命令
 CMD ["nginx", "-g", "daemon off;"]

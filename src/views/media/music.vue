@@ -39,7 +39,7 @@ const fetchMusicList = async () => {
     loading.value = true
     const res = await getMediaList()
     if (res.code === 201 || res.code === 200) {
-      musicList.value = res.data.map(item => ({
+      musicList.value = res.data.article.map(item => ({
         ...item,
         category: item.categorys[0]?.value || 'neutral'
       }))

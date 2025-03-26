@@ -39,7 +39,7 @@ const fetchVideoList = async () => {
     loading.value = true
     const res = await getVideoList()
     if (res.code === 201 || res.code === 200) {
-      videoList.value = res.data.map(item => ({
+      videoList.value = res.data.article.map(item => ({
         ...item,
         category: item.categorys[0]?.value || 'neutral'
       }))
